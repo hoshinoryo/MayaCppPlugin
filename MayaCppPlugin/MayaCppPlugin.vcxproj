@@ -154,6 +154,8 @@
     <ClCompile Include="BallBoxCommands.cpp" />
     <ClCompile Include="CreateArmJointCommand.cpp" />
     <ClCompile Include="CustomCreateSphere.cpp" />
+    <ClCompile Include="FuncUtils.cpp" />
+    <ClCompile Include="FuncUtils.h" />
     <ClCompile Include="pluginMain.cpp" />
     <ClCompile Include="PreBuildBoneChain.cpp" />
     <ClCompile Include="testSample.cpp" />

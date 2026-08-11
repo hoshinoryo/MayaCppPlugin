@@ -3,7 +3,7 @@
 #include <maya/MStatus.h>
 #include <maya/MPxCommand.h>
 
-class CreateArmJointCommand : public MPxCommand
+class CreateArmJoint : public MPxCommand
 {
 public:
 

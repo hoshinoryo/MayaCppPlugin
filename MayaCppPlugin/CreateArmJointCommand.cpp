@@ -1,68 +1,113 @@
 #include "CreateArmJointCommand.h"
+#include "FuncUtils.h"
+#include "PreBuildBoneChain.h"
+#include "StatusUtils.h"
 
 #include <maya/MFnIkJoint.h>
 #include <maya/MGlobal.h>
 #include <maya/MObject.h>
 #include <maya/MVector.h>
 #include <maya/MString.h>
+#include <maya/MQuaternion.h>
+#include <maya/MMatrix.h>
 
 
-MStatus checkStatusAndReturnIfFail(const MStatus& status, const MString& message)
+namespace
 {
-    if (!status)
+    MQuaternion matrixToQuaternion(const MMatrix& matrix)
     {
-        MGlobal::displayError(message + ": " + status.errorString());
-        return status;
+        MTransformationMatrix transformMatrix(matrix);
+
+        return transformMatrix.rotation();
     }
-    return MS::kSuccess;
 }
 
 
-void* CreateArmJointCommand::creator()
+void* CreateArmJoint::creator()
 {
-    return new CreateArmJointCommand;
+    return new CreateArmJoint;
 }
 
-MStatus CreateArmJointCommand::doIt(const MArgList& args)
+MStatus CreateArmJoint::doIt(const MArgList& args)
 {
     MStatus status;
+    
+    if (FuncUtils::objectExists("shoulder_jnt") ||
+        FuncUtils::objectExists("elbow_jnt") ||
+        FuncUtils::objectExists("hand_jnt")
+        )
+    {
+        MGlobal::displayError("Arm joint chain already exists.");
+        return MS::kFailure;
+    }
 
+    // Read position from locator guide
+    MVector shoulderPosition;
+    MVector elbowPosition;
+    MVector handPosition;
+
+    status = FuncUtils::getTransformWorldPosition("shoulder_guide", shoulderPosition);
+    RETURN_IF_MAYA_FAILED(status, "Cannot read shoulder guide");
+    status = FuncUtils::getTransformWorldPosition("elbow_guide", elbowPosition);
+    RETURN_IF_MAYA_FAILED(status, "Cannot read elbow guide");
+    status = FuncUtils::getTransformWorldPosition("hand_guide", handPosition);
+    RETURN_IF_MAYA_FAILED(status, "Cannot read hand guide");
+
+    MMatrix shoulderWorldOrientation;
+    MMatrix elbowWorldOrientation;
+
+    status = FuncUtils::buildAimOrientationMatrix(shoulderPosition, elbowPosition, shoulderWorldOrientation);
+    RETURN_IF_MAYA_FAILED(status, "Cannot calculate shoulder orientation");
+    status = FuncUtils::buildAimOrientationMatrix(elbowPosition, handPosition, elbowWorldOrientation);
+    RETURN_IF_MAYA_FAILED(status, "Cannot calculate elbow orientation");
+
+    // childWorld = childLocal * parentWorld
+    // -> childLocal = childWorld * inverse(parentWorld)
+    const MMatrix shoulderLocalOrientation = shoulderWorldOrientation;
+    const MMatrix elbowLocalOrientation = elbowWorldOrientation * shoulderWorldOrientation.inverse();
+
+    const MMatrix handLocalOrientation = elbowWorldOrientation * elbowWorldOrientation.inverse();
+
+    const MQuaternion shoulderJointOrient = matrixToQuaternion(shoulderLocalOrientation);
+    const MQuaternion elbowJointOrient = matrixToQuaternion(elbowLocalOrientation);
+    const MQuaternion handJointOrient = matrixToQuaternion(handLocalOrientation);
+
+    // Local translation
+    const MVector elbowLocalTranslation = (elbowPosition - shoulderPosition) * shoulderWorldOrientation.inverse();
+    const MVector handLocalTranslation = (handPosition - elbowPosition) * elbowWorldOrientation.inverse();
+
+    // Create joints
     MFnIkJoint shoulderFn;
     MFnIkJoint elbowFn;
     MFnIkJoint handFn;
 
     // Create shoulder joint
     MObject shoulderObj = shoulderFn.create(MObject::kNullObj, &status);
-    if (!checkStatusAndReturnIfFail(status, "Failed to create shoulder joint")) return status;
-    MGlobal::displayInfo("Shoulder created");
-
-    shoulderFn.setName("shoulder_jnt", false, &status);
-    if (!checkStatusAndReturnIfFail(status, "Failed to name shoulder joint")) return status;
-    
-    status = shoulderFn.setTranslation(MVector(0.0, 10.0, 0.0), MSpace::kTransform);
-    if (!checkStatusAndReturnIfFail(status, "setTranslation failed: ")) return status;
+    shoulderFn.setName("shoulder_jnt", false);
 
     // Create elbow joint
     MObject elbowObj = elbowFn.create(shoulderObj, &status);
-    if (!checkStatusAndReturnIfFail(status, "Failed to create elbow joint")) return status;
-    MGlobal::displayInfo("Elbow created");
-
-    elbowFn.setName("elbow_jnt", false, &status);
-    if (!checkStatusAndReturnIfFail(status, "Failed to name elbow joint")) return status;
-
-    status = elbowFn.setTranslation(MVector(5.0, 0.0, 0.0), MSpace::kTransform);
-    if (!checkStatusAndReturnIfFail(status, "Failed to position elbow joint")) return status;
+    elbowFn.setName("elbow_jnt", false);
 
     // Create hand joint
     MObject handObj = handFn.create(elbowObj, &status);
-    if (!checkStatusAndReturnIfFail(status, "Failed to create hand joint")) return status;
-    MGlobal::displayInfo("Hand created");
-
     handFn.setName("hand_jnt", false, &status);
-    if (!checkStatusAndReturnIfFail(status, "Failed to name hand joint")) return status;
 
-    status = handFn.setTranslation(MVector(4.0, 0.0, 0.0), MSpace::kTransform);
-    if (!checkStatusAndReturnIfFail(status, "Failed to position hand joint")) return status;
+    // Set position
+    status = shoulderFn.setTranslation(shoulderPosition, MSpace::kTransform);
+    RETURN_IF_MAYA_FAILED(status, "Failed to position shoulder joint");
+    status = elbowFn.setTranslation(elbowLocalTranslation, MSpace::kTransform);
+    RETURN_IF_MAYA_FAILED(status, "Failed to position elbow joint");
+    status = handFn.setTranslation(handLocalTranslation, MSpace::kTransform);
+    RETURN_IF_MAYA_FAILED(status, "Failed to position hand joint");
+
+    // Set joint orientation
+    status = shoulderFn.setOrientation(shoulderJointOrient);
+    RETURN_IF_MAYA_FAILED(status, "Failed to orient shoulder joint");
+    status = elbowFn.setOrientation(elbowJointOrient);
+    RETURN_IF_MAYA_FAILED(status, "Failed to orient elbow joint");
+    status = handFn.setOrientation(handJointOrient);
+    RETURN_IF_MAYA_FAILED(status, "Failed to orient hand joint");
 
     MGlobal::displayInfo("Arm joint chain created successfully");
 

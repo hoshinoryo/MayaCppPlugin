@@ -8,21 +8,22 @@
 #include "CreateArmJointCommand.h"
 #include "PreBuildBoneChain.h"
 
-const MString BallCmd = "ball";
-const MString BoxCmd = "box";
+//const MString BallCmd = "ball";
+//const MString BoxCmd = "box";
 
 MStatus initializePlugin(MObject obj)
 {
 	const char* pluginVendor = "Gu Anyi";
 	const char* pluginVersion = "0.1";
 
+	MStatus status;
 	MFnPlugin fnPlugin(obj, pluginVendor, pluginVersion);
 
-	MStatus status = fnPlugin.registerCommand(BallCmd, CreateBallCommand::creator);
-	status = fnPlugin.registerCommand(BoxCmd, CreateBoxCommand::creator);
+	//MStatus status = fnPlugin.registerCommand(BallCmd, CreateBallCommand::creator);
+	//status = fnPlugin.registerCommand(BoxCmd, CreateBoxCommand::creator);
 	status = fnPlugin.registerCommand("testSample", testSample::creator);
 	status = fnPlugin.registerCommand("CustomSphere", CustomSphere::creator);
-	status = fnPlugin.registerCommand("CreateArmJoint", CreateArmJointCommand::creator);
+	status = fnPlugin.registerCommand("CreateArmJoint", CreateArmJoint::creator);
 	status = fnPlugin.registerCommand("PreBuildBoneChain", PreBuildBoneChain::creator);
 	if (!status)
 	{
@@ -38,9 +39,10 @@ MStatus initializePlugin(MObject obj)
 
 MStatus uninitializePlugin(MObject obj)
 {
+	MStatus status;
 	MFnPlugin fnPlugin(obj);
-	MStatus status = fnPlugin.deregisterCommand(BallCmd);
-	status = fnPlugin.deregisterCommand(BoxCmd);
+	//MStatus status = fnPlugin.deregisterCommand(BallCmd);
+	//status = fnPlugin.deregisterCommand(BoxCmd);
 	status = fnPlugin.deregisterCommand("testSample");
 	status = fnPlugin.deregisterCommand("CustomSphere");
 	status = fnPlugin.deregisterCommand("CreateArmJoint");

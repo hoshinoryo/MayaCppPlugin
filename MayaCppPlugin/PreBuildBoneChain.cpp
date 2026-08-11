@@ -1,7 +1,13 @@
+///-------------------------------------------------------------------------------
+///shoulder_guide Å® shoulder_jnt
+///elbow_guide    Å® elbow_jnt
+///hand_guide     Å® hand_jnt
+///-------------------------------------------------------------------------------
+
 #include "PreBuildBoneChain.h"
 #include "StatusUtils.h"
+#include "FuncUtils.h"
 
-#include <maya/MSelectionList.h>
 #include <maya/MFnDependencyNode.h>
 #include <maya/MPlug.h>
 #include <maya/MFnTransform.h>
@@ -14,46 +20,6 @@
 
 namespace
 {
-    bool objectExists(const MString& objectName)
-    {
-        MSelectionList selectionList;
-        MStatus status = selectionList.add(objectName);
-        return status == MS::kSuccess;
-    }
-
-    MStatus setDisplayColor(const MObject& shapeObject, short colorIndex)
-    {
-        //MStatus status;
-        MFnDependencyNode shapeFn(shapeObject);
-
-        MPlug overrideEnabledPlug = shapeFn.findPlug("overrideEnabled", true);
-        overrideEnabledPlug.setBool(true);
-
-        MPlug overrideColorPlug = shapeFn.findPlug("overrideColor", true);
-        return overrideColorPlug.setShort(colorIndex);
-    }
-
-    MStatus setLocatorSize(const MObject& locatorShape, double size)
-    {
-        //MStatus status;
-        MFnDependencyNode locatorFn(locatorShape);
-
-        const char* scaleAttributes[] =
-        {
-            "localScaleX",
-            "localScaleY",
-            "localScaleZ"
-        };
-
-        for (const char* attributeName : scaleAttributes)
-        {
-            MPlug scalePlug = locatorFn.findPlug(attributeName, true);
-            scalePlug.setDouble(size);
-        }
-
-        return MS::kSuccess;
-    }
-    
     MStatus createGuideLocator(
         const MString& transformName,
         const MVector& worldPosition,
@@ -75,10 +41,10 @@ namespace
         locatorShape = locatorShapeFn.create("locator", locatorTransform);
         locatorShapeFn.setName(transformName + "Shape", false);
 
-        status = setLocatorSize(locatorShape, 0.65);
+        status = FuncUtils::setLocatorSize(locatorShape, 0.65);
         RETURN_IF_MAYA_FAILED(status, "Cannot set locator size");
 
-        return setDisplayColor(locatorShape, colorIndex);
+        return FuncUtils::setDisplayColor(locatorShape, colorIndex);
     }
 
     MStatus connectLocatorToCurveCV(
@@ -115,10 +81,10 @@ MStatus PreBuildBoneChain::doIt(const MArgList& args)
 {
     MStatus status;
 
-    if (objectExists("shoulder_guide") ||
-        objectExists("elbow_guide") ||
-        objectExists("hand_guide") ||
-        objectExists("arm_guide_curve")
+    if (FuncUtils::objectExists("shoulder_guide") ||
+        FuncUtils::objectExists("elbow_guide") ||
+        FuncUtils::objectExists("hand_guide") ||
+        FuncUtils::objectExists("arm_guide_curve")
         )
     {
         MGlobal::displayError("Arm guides already exists."
@@ -161,7 +127,7 @@ MStatus PreBuildBoneChain::doIt(const MArgList& args)
 
     curveFn.setName("arm_guide_curveShape", false);
 
-    status = setDisplayColor(curveShape, 18);
+    status = FuncUtils::setDisplayColor(curveShape, 18);
     RETURN_IF_MAYA_FAILED(status, "Cannot set curve color");
 
     // connect dependency graph
