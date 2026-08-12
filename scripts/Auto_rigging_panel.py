@@ -2,7 +2,8 @@ from PySide2 import QtCore
 from PySide2 import QtWidgets
 
 import maya.cmds as cmds
-from maya.app.general.mayaMixin import MayaQWidgetDockableMixin
+
+from Auto_rigging_view import RigBuildView
 
 
 PLUGIN_NAME = "MayaCppPlugin"
@@ -11,402 +12,225 @@ PRE_BUILD_COMMAND_NAME = "PreBuildBoneChain"
 CREATE_JOINT_COMMAND_NAME = "CreateJointChain"
 CREATE_FK_COMMAND_NAME = "CreateFkController"
 
-# Module management from here
+# Module management
+MODULE_ORDER = (
+    "arm",
+    "leg",
+    "spine",
+)
+
 MODULE_SIDES = {
     "arm": ("L", "R"),
     "leg": ("L", "R"),
     "spine": ("M",),
 }
 
-MODULE_BONES = {
-    "arm": (
-        "shoulder",
-        "elbow",
-        "wrist",
-    ),
-    "leg": (
-        "thigh",
-        "knee",
-        "ankle",
-        "ball",
-        "toe",
-    ),
-    "spine": (
-        "pelvis",
-        "spine_01",
-        "spine_02",
-        "chest",
-    ),
-}
+
+_panel_controller = None
 
 
-_panel_instance = None
-
-
-class RigBuildPanel(
-    MayaQWidgetDockableMixin,
-    QtWidgets.QWidget
-):
-    WINDOW_TITLE = "Auto Rigging"
-    OBJECT_NAME = "MayaCppPluginRigBuildPanel"
+class RigBuildController(QtCore.QObject):
 
     def __init__(self, parent=None):
-        super(RigBuildPanel, self).__init__(parent=parent)
+        self.view = RigBuildView(
+            module_names=MODULE_ORDER,
+            parent=parent
+        )
 
-        self.setObjectName(self.OBJECT_NAME)
-        self.setWindowTitle(self.WINDOW_TITLE)
-        self.setMinimumWidth(320)
+        # Controller 以 View 为 QObject parent，
+        # 防止 Controller 被 Python 垃圾回收。
+        super(RigBuildController, self).__init__(self.view)
 
-        self.create_widgets()
-        self.create_layout()
         self.create_connections()
-
         self.update_side_options()
 
     # ------------------------------------------------------------------
-    # UI creation
+    # UI connections
     # ------------------------------------------------------------------
-
-    def create_widgets(self):
-        self.module_label = QtWidgets.QLabel("Module")
-        self.module_combo_box = QtWidgets.QComboBox()
-        self.module_combo_box.addItems(MODULE_SIDES.keys())
-
-        self.side_label = QtWidgets.QLabel("Side")
-        self.side_combo_box = QtWidgets.QComboBox()
-
-        self.create_guides_button = QtWidgets.QPushButton(
-            "Create Locator Guides"
-        )
-
-        self.mirror_check_box = QtWidgets.QCheckBox(
-            "Mirror"
-        )
-        self.mirror_check_box.setChecked(False)
-        self.mirror_check_box.setToolTip(
-            "Mirror the current locator guides across world X=0, "
-            "then build both L and R sides."
-        )
-
-        self.create_joint_chain_button = QtWidgets.QPushButton(
-            "Create Joint Chain"
-        )
-
-        self.create_fk_button = QtWidgets.QPushButton(
-            "Create FK Controllers"
-        )
-
-        self.build_all_button = QtWidgets.QPushButton(
-            "Build Joint Chain and FK"
-        )
-
-        self.create_guides_button.setMinimumHeight(36)
-        self.create_joint_chain_button.setMinimumHeight(36)
-        self.create_fk_button.setMinimumHeight(36)
-        self.build_all_button.setMinimumHeight(42)
-
-    def create_layout(self):
-        selection_layout = QtWidgets.QFormLayout()
-        selection_layout.setContentsMargins(0, 0, 0, 0)
-        selection_layout.setHorizontalSpacing(12)
-        selection_layout.setVerticalSpacing(8)
-
-        selection_layout.addRow(
-            self.module_label,
-            self.module_combo_box
-        )
-
-        selection_layout.addRow(
-            self.side_label,
-            self.side_combo_box
-        )
-
-        build_options_layout = QtWidgets.QFormLayout()
-        build_options_layout.setContentsMargins(0, 0, 0, 0)
-        build_options_layout.setHorizontalSpacing(12)
-        build_options_layout.setVerticalSpacing(8)
-
-        build_options_layout.addRow(
-            QtWidgets.QLabel("Build Options"),
-            self.mirror_check_box
-        )
-
-        button_layout = QtWidgets.QVBoxLayout()
-        button_layout.setSpacing(8)
-
-        button_layout.addWidget(
-            self.create_guides_button
-        )
-
-        button_layout.addWidget(
-            self.create_joint_chain_button
-        )
-
-        button_layout.addWidget(
-            self.create_fk_button
-        )
-
-        button_layout.addSpacing(8)
-
-        button_layout.addWidget(
-            self.build_all_button
-        )
-
-        main_layout = QtWidgets.QVBoxLayout(self)
-        main_layout.setContentsMargins(12, 12, 12, 12)
-        main_layout.setSpacing(12)
-
-        main_layout.addLayout(selection_layout)
-        main_layout.addWidget(self.create_separator())
-        main_layout.addLayout(build_options_layout)
-        main_layout.addWidget(self.create_separator())
-        main_layout.addLayout(button_layout)
-        main_layout.addStretch()
-
-    @staticmethod
-    def create_separator():
-        separator = QtWidgets.QFrame()
-        separator.setFrameShape(QtWidgets.QFrame.HLine)
-        separator.setFrameShadow(QtWidgets.QFrame.Sunken)
-        return separator
 
     def create_connections(self):
-        self.module_combo_box.currentTextChanged.connect(
-            self.update_side_options
-        )
+        self.view.module_combo_box.currentTextChanged.connect(self.update_side_options)
 
-        self.create_guides_button.clicked.connect(
-            self.create_locator_guides
-        )
+        self.view.create_guides_button.clicked.connect(self.create_locator_guides)
 
-        self.create_joint_chain_button.clicked.connect(
-            self.create_joint_chain
-        )
+        self.view.create_joint_chain_button.clicked.connect(self.create_joint_chain)
 
-        self.create_fk_button.clicked.connect(
-            self.create_fk_controllers
-        )
+        self.view.create_fk_button.clicked.connect(self.create_fk_controllers)
 
-        self.build_all_button.clicked.connect(
-            self.build_joint_chain_and_fk
-        )
+        self.view.build_all_button.clicked.connect(self.build_joint_chain_and_fk)
 
     # ------------------------------------------------------------------
-    # Current module settings
+    # Current UI state
     # ------------------------------------------------------------------
 
     def current_module(self):
-        return self.module_combo_box.currentText()
+        return self.view.module_combo_box.currentText()
 
     def current_side(self):
-        return self.side_combo_box.currentText()
+        return self.view.side_combo_box.currentText()
 
     def mirror_enabled(self):
         return (
-            self.mirror_check_box.isEnabled()
-            and self.mirror_check_box.isChecked()
+            self.view.mirror_check_box.isEnabled()
+            and self.view.mirror_check_box.isChecked()
         )
 
-    def current_command_arguments(self, side=None):
+    def command_arguments(self, side=None):
         return {
             "module": self.current_module(),
             "side": side or self.current_side(),
         }
 
-    @QtCore.Slot()
-    def update_side_options(self):
+    @QtCore.Slot(str)
+    def update_side_options(self, _module_name=None):
         module_name = self.current_module()
-        allowed_sides = MODULE_SIDES.get(
-            module_name,
-            ("M",)
-        )
 
-        previous_side = self.current_side()
+        allowed_sides = MODULE_SIDES.get(module_name,("M",))
 
-        self.side_combo_box.blockSignals(True)
-        self.side_combo_box.clear()
-        self.side_combo_box.addItems(allowed_sides)
+        side_combo_box = (self.view.side_combo_box)
 
-        if previous_side in allowed_sides:
-            self.side_combo_box.setCurrentText(previous_side)
-        elif "L" in allowed_sides:
-            # 所有左右侧模块默认选择 L。
-            self.side_combo_box.setCurrentText("L")
+        side_combo_box.blockSignals(True)
+        side_combo_box.clear()
+        side_combo_box.addItems(allowed_sides)
+
+        # Default : L
+        if "L" in allowed_sides:
+            side_combo_box.setCurrentText("L")
         else:
-            self.side_combo_box.setCurrentIndex(0)
+            side_combo_box.setCurrentIndex(0)
 
-        self.side_combo_box.blockSignals(False)
+        side_combo_box.blockSignals(False)
 
-        can_mirror = (
-            "L" in allowed_sides
-            and "R" in allowed_sides
-        )
+        can_mirror = ("L" in allowed_sides and "R" in allowed_sides)
 
-        self.mirror_check_box.setEnabled(can_mirror)
+        self.view.mirror_check_box.setEnabled(can_mirror)
 
-        if not can_mirror:
-            self.mirror_check_box.setChecked(False)
-            self.mirror_check_box.setToolTip(
-                "Mirror is unavailable for center modules."
+        if can_mirror:
+            self.view.mirror_check_box.setToolTip(
+                "Build the current side and its mirrored side."
             )
         else:
-            self.mirror_check_box.setToolTip(
-                "Mirror the current locator guides across world X=0, "
-                "then build both L and R sides."
+            self.view.mirror_check_box.setChecked(False)
+            self.view.mirror_check_box.setToolTip(
+                "Mirror is unavailable for center modules."
             )
 
     # ------------------------------------------------------------------
-    # Name helpers
+    # Guide name helpers
     # ------------------------------------------------------------------
 
     @staticmethod
     def opposite_side(side):
-        if side == "L":
-            return "R"
+        opposite_sides = {
+            "L": "R",
+            "R": "L",
+        }
 
-        if side == "R":
-            return "L"
+        try:
+            return opposite_sides[side]
 
-        raise RuntimeError(
-            "Only L and R modules can be mirrored."
-        )
+        except KeyError:
+            raise RuntimeError("Only L and R modules can be mirrored.")
 
     @staticmethod
     def module_prefix(module_name, side):
-        return "{}_{}".format(
-            side,
-            module_name
-        )
+        return "{}_{}".format(side, module_name)
 
-    def guide_names(self, module_name, side):
-        try:
-            bone_labels = MODULE_BONES[module_name]
-        except KeyError:
-            raise RuntimeError(
-                "No guide definition found for module: {}".format(
-                    module_name
-                )
-            )
-
-        prefix = self.module_prefix(
-            module_name,
-            side
-        )
-
-        return [
-            "{}_{}_guide".format(
-                prefix,
-                bone_label
-            )
-            for bone_label in bone_labels
-        ]
-
-    # ------------------------------------------------------------------
-    # Mirror guide handling
-    # ------------------------------------------------------------------
-
-    def validate_source_guides(
+    def find_locator_guides(
         self,
         module_name,
-        source_side
+        side
     ):
-        source_guides = self.guide_names(
-            module_name,
-            source_side
-        )
+        prefix = self.module_prefix(module_name, side)
 
-        missing_guides = [
-            guide_name
-            for guide_name in source_guides
-            if not cmds.objExists(guide_name)
-        ]
+        pattern = "{}_*_guide".format(prefix)
 
-        if missing_guides:
-            raise RuntimeError(
-                "The current side locator guides are incomplete.\n\n"
-                "Missing:\n{}".format(
-                    "\n".join(missing_guides)
-                )
-            )
+        possible_guides = cmds.ls(
+            pattern,
+            type="transform",
+            long=False
+        ) or []
 
-        return source_guides
+        locator_guides = []
 
-    def ensure_target_guides(
-        self,
-        module_name,
-        target_side
-    ):
-        target_guides = self.guide_names(
-            module_name,
-            target_side
-        )
+        for transform_name in possible_guides:
+            locator_shapes = cmds.listRelatives(
+                transform_name,
+                shapes=True,
+                type="locator",
+                fullPath=False
+            ) or []
 
-        existing_guides = [
-            guide_name
-            for guide_name in target_guides
-            if cmds.objExists(guide_name)
-        ]
+            if locator_shapes:
+                locator_guides.append(transform_name)
 
-        if not existing_guides:
-            # 利用现有 C++ 命令创建目标侧 locator 和 guide curve，
-            # 随后再覆盖 locator 的世界坐标。
-            self.execute_plugin_command(
-                PRE_BUILD_COMMAND_NAME,
-                side=target_side
-            )
+        return sorted(locator_guides)
 
-        elif len(existing_guides) != len(target_guides):
-            missing_guides = [
-                guide_name
-                for guide_name in target_guides
-                if not cmds.objExists(guide_name)
-            ]
-
-            raise RuntimeError(
-                "The mirrored side has incomplete locator guides.\n\n"
-                "Delete or repair that side before mirroring.\n\n"
-                "Missing:\n{}".format(
-                    "\n".join(missing_guides)
-                )
-            )
-
-        return target_guides
+    # ------------------------------------------------------------------
+    # Mirror implementation
+    # ------------------------------------------------------------------
 
     def mirror_locator_guides(self):
         module_name = self.current_module()
         source_side = self.current_side()
 
         if source_side not in ("L", "R"):
+            raise RuntimeError("The {} module cannot be mirrored.".format(module_name))
+
+        target_side = self.opposite_side(source_side)
+
+        source_guides = self.find_locator_guides(module_name, source_side)
+
+        if not source_guides:
             raise RuntimeError(
-                "The {} module cannot be mirrored.".format(
-                    module_name
-                )
+                "No locator guides were found for {}_{}.\n\n"
+                "Create and position the current side guides first.".format(source_side, module_name)
             )
 
-        target_side = self.opposite_side(
-            source_side
-        )
+        source_prefix = self.module_prefix(module_name, source_side)
+        target_prefix = self.module_prefix(module_name, target_side)
 
-        source_guides = self.validate_source_guides(
-            module_name,
-            source_side
-        )
+        target_guide_names = [
+            source_guide.replace(source_prefix, target_prefix, 1)
+            for source_guide in source_guides
+        ]
 
-        target_guides = self.ensure_target_guides(
-            module_name,
-            target_side
-        )
+        existing_target_guides = [
+            target_guide
+            for target_guide in target_guide_names
+            if cmds.objExists(target_guide)
+        ]
+
+        if not existing_target_guides:
+            # 使用现有 C++ 命令创建目标侧 locator 和 guide curve。
+            self.execute_plugin_command(
+                PRE_BUILD_COMMAND_NAME,
+                side=target_side
+            )
+
+        elif (
+            len(existing_target_guides)
+            != len(target_guide_names)
+        ):
+            missing_target_guides = [
+                target_guide
+                for target_guide in target_guide_names
+                if not cmds.objExists(target_guide)
+            ]
+
+            raise RuntimeError(
+                "The target-side guides are incomplete.\n\n"
+                "Missing guides:\n{}".format("\n".join(missing_target_guides))
+            )
 
         for source_guide, target_guide in zip(
             source_guides,
-            target_guides
+            target_guide_names
         ):
-            source_position = cmds.xform(
-                source_guide,
-                query=True,
-                worldSpace=True,
-                translation=True
-            )
+            if not cmds.objExists(target_guide):
+                raise RuntimeError("The target guide was not created: {}".format(target_guide))
+
+            source_position = cmds.xform(source_guide, query=True, worldSpace=True, translation=True)
 
             mirrored_position = (
                 -source_position[0],
@@ -414,29 +238,35 @@ class RigBuildPanel(
                 source_position[2],
             )
 
-            cmds.xform(
-                target_guide,
-                worldSpace=True,
-                translation=mirrored_position
-            )
-
-        return source_side, target_side
-
-    def build_sides(self):
-        if not self.mirror_enabled():
-            return (self.current_side(),)
-
-        source_side, target_side = (
-            self.mirror_locator_guides()
-        )
+            cmds.xform(target_guide, worldSpace=True, translation=mirrored_position)
 
         return (
             source_side,
             target_side,
         )
 
+    def joint_build_sides(self):
+        if not self.mirror_enabled():
+            return (
+                self.current_side(),
+            )
+
+        return self.mirror_locator_guides()
+
+    def fk_build_sides(self):
+        if not self.mirror_enabled():
+            return (
+                self.current_side(),
+            )
+
+        source_side = self.current_side()
+
+        return (source_side,
+            self.opposite_side(source_side),
+        )
+
     # ------------------------------------------------------------------
-    # Public button slots
+    # Button handlers
     # ------------------------------------------------------------------
 
     @QtCore.Slot()
@@ -468,125 +298,77 @@ class RigBuildPanel(
         )
 
     # ------------------------------------------------------------------
-    # Build implementation
+    # Build operations
     # ------------------------------------------------------------------
 
     def _create_locator_guides(self):
+        # 创建 guide 时只创建当前下拉菜单所选侧。
         # Mirror 只控制骨骼和 FK 构建。
-        # 创建 locator 时始终只创建下拉菜单中的当前侧。
-        self.execute_plugin_command(
-            PRE_BUILD_COMMAND_NAME,
-            side=self.current_side()
-        )
+        self.execute_plugin_command(PRE_BUILD_COMMAND_NAME, side=self.current_side())
 
     def _create_joint_chain(self):
-        sides = self.build_sides()
+        build_sides = self.joint_build_sides()
 
-        for side in sides:
-            self.execute_plugin_command(
-                CREATE_JOINT_COMMAND_NAME,
-                side=side
-            )
+        for side in build_sides:
+            self.execute_plugin_command(CREATE_JOINT_COMMAND_NAME, side=side)
 
     def _create_fk_controllers(self):
-        sides = self.build_sides()
+        build_sides = self.fk_build_sides()
 
-        for side in sides:
-            self.execute_plugin_command(
-                CREATE_FK_COMMAND_NAME,
-                side=side
-            )
+        for side in build_sides:
+            self.execute_plugin_command(CREATE_FK_COMMAND_NAME, side=side)
 
     def _build_joint_chain_and_fk(self):
-        sides = self.build_sides()
+        build_sides = self.joint_build_sides()
 
-        # 先完成所有骨骼，再创建所有 FK 控制器。
-        for side in sides:
-            self.execute_plugin_command(
-                CREATE_JOINT_COMMAND_NAME,
-                side=side
-            )
+        for side in build_sides:
+            self.execute_plugin_command(CREATE_JOINT_COMMAND_NAME, side=side)
+        for side in build_sides:
+            self.execute_plugin_command(CREATE_FK_COMMAND_NAME, side=side)
 
-        for side in sides:
-            self.execute_plugin_command(
-                CREATE_FK_COMMAND_NAME,
-                side=side
-            )
+    # ------------------------------------------------------------------
+    # Maya command execution
+    # ------------------------------------------------------------------
 
-    def execute_plugin_command(
-        self,
-        command_name,
-        side=None
-    ):
-        command = getattr(
-            cmds,
-            command_name,
-            None
-        )
+    def execute_plugin_command(self, command_name, side=None):
+        command = getattr(cmds, command_name, None)
 
         if command is None:
-            raise RuntimeError(
-                "Maya command is not registered: {}".format(
-                    command_name
-                )
-            )
+            raise RuntimeError("Maya command is not registered: {}".format(command_name))
 
-        return command(
-            **self.current_command_arguments(
-                side=side
-            )
-        )
+        return command(**self.command_arguments(side=side))
 
     # ------------------------------------------------------------------
-    # Error handling and undo grouping
+    # Error handling
     # ------------------------------------------------------------------
 
-    def run_build_action(
-        self,
-        action,
-        error_title
-    ):
+    def run_build_action(self, action, error_title):
         undo_chunk_open = False
 
         try:
             self.ensure_plugin_loaded()
 
-            cmds.undoInfo(
-                openChunk=True,
-                chunkName="AutoRigBuild"
-            )
+            cmds.undoInfo(openChunk=True, chunkName="AutoRigBuild")
             undo_chunk_open = True
 
             action()
 
         except Exception as error:
-            self.show_error(
-                error_title,
-                error
-            )
+            self.show_error(error_title, error)
 
         finally:
             if undo_chunk_open:
                 cmds.undoInfo(closeChunk=True)
 
     def ensure_plugin_loaded(self):
-        if cmds.pluginInfo(
-            PLUGIN_NAME,
-            query=True,
-            loaded=True
-        ):
+        if cmds.pluginInfo(PLUGIN_NAME, query=True, loaded=True):
             return
 
         try:
             cmds.loadPlugin(PLUGIN_NAME)
 
         except RuntimeError as error:
-            raise RuntimeError(
-                "Could not load {}.\n\n{}".format(
-                    PLUGIN_NAME,
-                    error
-                )
-            )
+            raise RuntimeError("Could not load {}.\n\n{}".format(PLUGIN_NAME, error))
 
     def show_error(
         self,
@@ -601,46 +383,23 @@ class RigBuildPanel(
         ).format(
             module=self.current_module(),
             side=self.current_side(),
-            mirror="On" if self.mirror_enabled() else "Off",
+            mirror=(
+                "On"
+                if self.mirror_enabled()
+                else "Off"
+            ),
             error=error
         )
 
-        QtWidgets.QMessageBox.critical(
-            self,
-            title,
-            message
-        )
+        QtWidgets.QMessageBox.critical(self.view, title, message)
 
+    # ------------------------------------------------------------------
+    # View lifecycle
+    # ------------------------------------------------------------------
 
-def show_panel():
-    global _panel_instance
+    def show(self):
+        self.view.show(dockable=True, area="right",floating=True)
 
-    workspace_control = (
-        RigBuildPanel.OBJECT_NAME
-        + "WorkspaceControl"
-    )
-
-    if cmds.workspaceControl(
-        workspace_control,
-        query=True,
-        exists=True
-    ):
-        cmds.deleteUI(workspace_control)
-
-    if _panel_instance is not None:
-        try:
-            _panel_instance.close()
-            _panel_instance.deleteLater()
-
-        except RuntimeError:
-            pass
-
-    _panel_instance = RigBuildPanel()
-
-    _panel_instance.show(
-        dockable=True,
-        area="right",
-        floating=True
-    )
-
-    return _panel_instance
+    def close(self):
+        self.view.close()
+        self.view.deleteLater()
