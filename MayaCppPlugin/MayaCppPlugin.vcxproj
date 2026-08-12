@@ -153,6 +153,7 @@
   <ItemGroup>
     <ClCompile Include="BallBoxCommands.cpp" />
     <ClCompile Include="CreateArmJointCommand.cpp" />
+    <ClCompile Include="CreateFkController.cpp" />
     <ClCompile Include="CustomCreateSphere.cpp" />
     <ClCompile Include="FuncUtils.cpp" />
     <ClCompile Include="FuncUtils.h" />
@@ -163,6 +164,7 @@
   <ItemGroup>
     <ClInclude Include="BallBoxCommands.h" />
     <ClInclude Include="CreateArmJointCommand.h" />
+    <ClInclude Include="CreateFkController.h" />
     <ClInclude Include="CustomCreateSphere.h" />
     <ClInclude Include="PreBuildBoneChain.h" />
     <ClInclude Include="StatusUtils.h" />

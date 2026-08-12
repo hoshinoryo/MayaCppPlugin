@@ -8,6 +8,7 @@
 #include <maya/MFnTransform.h>
 #include <maya/MVector.h>
 #include <maya/MMatrix.h>
+#include <maya/MQuaternion.h>
 
 
 namespace
@@ -20,6 +21,47 @@ bool FuncUtils::objectExists(const MString& objectName)
     MSelectionList selectionList;
 
     return selectionList.add(objectName) == MS::kSuccess;
+}
+
+MStatus FuncUtils::executeMayaCommand(const MString& command, const MString& errorMessage)
+{
+    MStatus status = MGlobal::executeCommand(command, false, true);
+    RETURN_IF_MAYA_FAILED(status, errorMessage);
+
+    return MS::kSuccess;
+}
+
+MStatus FuncUtils::getDagPath(const MString& nodeName, MDagPath& dagPath)
+{
+    MStatus status;
+    MSelectionList selectionList;
+
+    status = selectionList.add(nodeName);
+    RETURN_IF_MAYA_FAILED(status, "Cannot find DAG node");
+
+    status = selectionList.getDagPath(0, dagPath);
+    RETURN_IF_MAYA_FAILED(status, "Cannot get DAG path");
+
+    return MS::kSuccess;
+}
+
+MStatus FuncUtils::getShapeFromTransform(const MString& transformName, MDagPath& shapePath)
+{
+    MStatus status;
+
+    status = getDagPath(transformName, shapePath);
+    RETURN_IF_MAYA_FAILED(status, "Cannot get transform path");
+
+    if (!shapePath.hasFn(MFn::kTransform))
+    {
+        MGlobal::displayError("Node is not a transform: " + transformName);
+        return MS::kFailure;
+    }
+
+    status = shapePath.extendToShape();
+    RETURN_IF_MAYA_FAILED(status, "Cannot extend path to shape");
+
+    return MS::kSuccess;
 }
 
 MStatus FuncUtils::setDisplayColor(const MObject& shapeObject, short colorIndex)
@@ -62,19 +104,57 @@ MStatus FuncUtils::setLocatorSize(const MObject& locatorShape, double size)
 MStatus FuncUtils::getTransformWorldPosition(const MString& transformNode, MVector& worldPosition)
 {
     MStatus status;
-    MSelectionList selectionList;
-
-    status = selectionList.add(transformNode);
-    RETURN_IF_MAYA_FAILED(status, "Cannot find transform");
-
     MDagPath transformPath;
-    status = selectionList.getDagPath(0, transformPath);
-    RETURN_IF_MAYA_FAILED(status, "Cannot get transform DAG path");
+
+    status = getDagPath(transformNode, transformPath);
+    RETURN_IF_MAYA_FAILED(status, "Cannot get transform");
 
     MFnTransform transformFn(transformPath);
 
-    worldPosition = transformFn.getTranslation(MSpace::kWorld);
+    worldPosition = transformFn.getTranslation(MSpace::kWorld, &status);
     RETURN_IF_MAYA_FAILED(status, "Cannot read transform world position");
+
+    return MS::kSuccess;
+}
+
+MStatus FuncUtils::matchWorldPositionAndRotation(const MString& destNode, const MString& sourceNode)
+{
+    MStatus status;
+
+    MDagPath destPath, sourcePath;
+    getDagPath(destNode, destPath);
+    getDagPath(sourceNode, sourcePath);
+
+    const MMatrix sourceWorldMatrix = sourcePath.inclusiveMatrix(&status);
+
+    MTransformationMatrix sourceTransform(sourceWorldMatrix);
+
+    const MVector sourceTranslation = sourceTransform.getTranslation(MSpace::kTransform, &status);
+    RETURN_IF_MAYA_FAILED(status, "Cannot read source translation");
+
+    const MQuaternion sourceRotation = sourceTransform.rotation();
+
+    MTransformationMatrix desiredWorldTransform;
+    desiredWorldTransform.setTranslation(sourceTranslation, MSpace::kTransform);
+    desiredWorldTransform.rotateTo(sourceRotation);
+
+    MMatrix parentWorldMatrix;
+    parentWorldMatrix.setToIdentity();
+
+    if (destPath.length() > 1)
+    {
+        MDagPath parentPath = destPath;
+        parentPath.pop();
+
+        parentWorldMatrix = parentPath.inclusiveMatrix(&status);
+        RETURN_IF_MAYA_FAILED(status, "Cannot read destination parent matrix");
+    }
+
+    const MMatrix destLocalMatrix = desiredWorldTransform.asMatrix() * parentWorldMatrix.inverse();
+    MTransformationMatrix destTransform(destLocalMatrix);
+
+    MFnTransform destinationFn(destPath);
+    destinationFn.set(destTransform);
 
     return MS::kSuccess;
 }
@@ -125,4 +205,9 @@ MStatus FuncUtils::buildAimOrientationMatrix(
     orientationMatrix[2][2] = zAxis.z;
 
     return MS::kSuccess;
+}
+
+MQuaternion FuncUtils::matrixToQuaternion(const MMatrix& matrix)
+{
+    return MTransformationMatrix (matrix).rotation();
 }

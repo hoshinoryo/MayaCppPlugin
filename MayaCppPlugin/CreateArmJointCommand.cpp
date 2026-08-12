@@ -12,17 +12,6 @@
 #include <maya/MMatrix.h>
 
 
-namespace
-{
-    MQuaternion matrixToQuaternion(const MMatrix& matrix)
-    {
-        MTransformationMatrix transformMatrix(matrix);
-
-        return transformMatrix.rotation();
-    }
-}
-
-
 void* CreateArmJoint::creator()
 {
     return new CreateArmJoint;
@@ -68,9 +57,9 @@ MStatus CreateArmJoint::doIt(const MArgList& args)
 
     const MMatrix handLocalOrientation = elbowWorldOrientation * elbowWorldOrientation.inverse();
 
-    const MQuaternion shoulderJointOrient = matrixToQuaternion(shoulderLocalOrientation);
-    const MQuaternion elbowJointOrient = matrixToQuaternion(elbowLocalOrientation);
-    const MQuaternion handJointOrient = matrixToQuaternion(handLocalOrientation);
+    const MQuaternion shoulderJointOrient = FuncUtils::matrixToQuaternion(shoulderLocalOrientation);
+    const MQuaternion elbowJointOrient = FuncUtils::matrixToQuaternion(elbowLocalOrientation);
+    const MQuaternion handJointOrient = FuncUtils::matrixToQuaternion(handLocalOrientation);
 
     // Local translation
     const MVector elbowLocalTranslation = (elbowPosition - shoulderPosition) * shoulderWorldOrientation.inverse();

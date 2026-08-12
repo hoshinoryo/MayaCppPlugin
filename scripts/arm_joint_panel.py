@@ -9,6 +9,7 @@ PLUGIN_NAME = "MayaCppPlugin"
 
 PRE_BUILD_COMMAND_NAME = "PreBuildBoneChain"
 CREATE_JOINT_COMMAND_NAME = "CreateArmJoint"
+CREATE_FK_COMMAND_NAME = "CreateFkController"
 
 _panel_instance = None
 
@@ -61,7 +62,7 @@ class ArmJointPanel(
 
     def create_connections(self):
         self.create_guides_button.clicked.connect(
-            self.create_visual_guides
+            self.create_locator_guides
         )
 
         self.create_arm_button.clicked.connect(
@@ -69,7 +70,7 @@ class ArmJointPanel(
         )
 
     @QtCore.Slot()
-    def create_visual_guides(self):
+    def create_locator_guides(self):
         try:
             self.ensure_plugin_loaded()
 
@@ -92,12 +93,11 @@ class ArmJointPanel(
         try:
             self.ensure_plugin_loaded()
 
-            command = getattr(
-                cmds,
-                CREATE_JOINT_COMMAND_NAME
-            )
+            create_joint_command = getattr(cmds, CREATE_JOINT_COMMAND_NAME)
+            create_fk_command = getattr(cmds, CREATE_FK_COMMAND_NAME)
 
-            command()
+            create_joint_command()
+            create_fk_command()
 
         except Exception as error:
             QtWidgets.QMessageBox.critical(

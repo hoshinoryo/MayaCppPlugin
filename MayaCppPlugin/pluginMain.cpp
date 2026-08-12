@@ -7,6 +7,7 @@
 #include "CustomCreateSphere.h"
 #include "CreateArmJointCommand.h"
 #include "PreBuildBoneChain.h"
+#include "CreateFkController.h"
 
 //const MString BallCmd = "ball";
 //const MString BoxCmd = "box";
@@ -25,6 +26,7 @@ MStatus initializePlugin(MObject obj)
 	status = fnPlugin.registerCommand("CustomSphere", CustomSphere::creator);
 	status = fnPlugin.registerCommand("CreateArmJoint", CreateArmJoint::creator);
 	status = fnPlugin.registerCommand("PreBuildBoneChain", PreBuildBoneChain::creator);
+	status = fnPlugin.registerCommand("CreateFkController", CreateFkController::creator);
 	if (!status)
 	{
 		status.perror("Plugin commands registeration has failed!");
@@ -47,6 +49,7 @@ MStatus uninitializePlugin(MObject obj)
 	status = fnPlugin.deregisterCommand("CustomSphere");
 	status = fnPlugin.deregisterCommand("CreateArmJoint");
 	status = fnPlugin.deregisterCommand("PreBuildBoneChain");
+	status = fnPlugin.deregisterCommand("CreateFkController");
 	if (!status)
 	{
 		status.perror("Plugin commands de-registeration has failed!");
