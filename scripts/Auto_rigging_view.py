@@ -3,21 +3,12 @@ from PySide2 import QtWidgets
 from maya.app.general.mayaMixin import MayaQWidgetDockableMixin
 
 
-class RigBuildView(
-    MayaQWidgetDockableMixin,
-    QtWidgets.QWidget
-):
+class RigBuildView(MayaQWidgetDockableMixin, QtWidgets.QWidget):
     WINDOW_TITLE = "Auto Rigging"
     OBJECT_NAME = "MayaCppPluginRigBuildPanel"
 
-    def __init__(
-        self,
-        module_names,
-        parent=None
-    ):
-        super(RigBuildView, self).__init__(
-            parent=parent
-        )
+    def __init__(self, module_names,parent=None):
+        super(RigBuildView, self).__init__(parent=parent)
 
         self.setObjectName(self.OBJECT_NAME)
         self.setWindowTitle(self.WINDOW_TITLE)
@@ -27,48 +18,29 @@ class RigBuildView(
         self.create_layout()
 
     # ------------------------------------------------------------------
-    # Widget creation
+    # UI Widget creation
     # ------------------------------------------------------------------
-
     def create_widgets(self, module_names):
-        self.module_label = QtWidgets.QLabel(
-            "Module"
-        )
+        self.module_label = QtWidgets.QLabel("Module")
 
         self.module_combo_box = QtWidgets.QComboBox()
-        self.module_combo_box.addItems(
-            module_names
-        )
+        self.module_combo_box.addItems(module_names)
 
-        self.side_label = QtWidgets.QLabel(
-            "Side"
-        )
+        self.side_label = QtWidgets.QLabel("Side")
 
         self.side_combo_box = QtWidgets.QComboBox()
 
-        self.create_guides_button = QtWidgets.QPushButton(
-            "Create Locator Guides"
-        )
+        self.create_guides_button = QtWidgets.QPushButton("Create Locator Guides")
 
-        self.mirror_check_box = QtWidgets.QCheckBox(
-            "Mirror"
-        )
+        self.mirror_check_box = QtWidgets.QCheckBox("Mirror")
         self.mirror_check_box.setChecked(False)
-        self.mirror_check_box.setToolTip(
-            "Mirror the current locator guides across world X=0."
-        )
+        self.mirror_check_box.setToolTip("Mirror the current locator guides across world X=0.")
 
-        self.create_joint_chain_button = QtWidgets.QPushButton(
-            "Create Joint Chain"
-        )
+        self.create_joint_chain_button = QtWidgets.QPushButton("Create Joint Chain")
 
-        self.create_fk_button = QtWidgets.QPushButton(
-            "Create FK Controllers"
-        )
+        self.create_fk_button = QtWidgets.QPushButton("Create FK Controllers")
 
-        self.build_all_button = QtWidgets.QPushButton(
-            "Build Joint Chain and FK"
-        )
+        self.build_all_button = QtWidgets.QPushButton("Build Joint Chain and FK")
 
         self.create_guides_button.setMinimumHeight(36)
         self.create_joint_chain_button.setMinimumHeight(36)
@@ -91,15 +63,9 @@ class RigBuildView(
         selection_layout.setHorizontalSpacing(12)
         selection_layout.setVerticalSpacing(8)
 
-        selection_layout.addRow(
-            self.module_label,
-            self.module_combo_box
-        )
+        selection_layout.addRow(self.module_label, self.module_combo_box)
 
-        selection_layout.addRow(
-            self.side_label,
-            self.side_combo_box
-        )
+        selection_layout.addRow(self.side_label, self.side_combo_box)
 
         build_options_layout = QtWidgets.QFormLayout()
 

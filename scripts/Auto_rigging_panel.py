@@ -31,14 +31,16 @@ _panel_controller = None
 
 class RigBuildController(QtCore.QObject):
 
-    def __init__(self, parent=None):
-        self.view = RigBuildView(
-            module_names=MODULE_ORDER,
-            parent=parent
-        )
+    """
+    Connects the rig-building UI to Maya commands.
 
-        # Controller 以 View 为 QObject parent，
-        # 防止 Controller 被 Python 垃圾回收。
+    Manages UI state, build actions, guide mirroring,
+    plugin loading, undo grouping, and error handling.
+    """
+
+    def __init__(self, parent=None):
+        self.view = RigBuildView(module_names=MODULE_ORDER, parent=parent)
+
         super(RigBuildController, self).__init__(self.view)
 
         self.create_connections()
@@ -50,13 +52,9 @@ class RigBuildController(QtCore.QObject):
 
     def create_connections(self):
         self.view.module_combo_box.currentTextChanged.connect(self.update_side_options)
-
         self.view.create_guides_button.clicked.connect(self.create_locator_guides)
-
         self.view.create_joint_chain_button.clicked.connect(self.create_joint_chain)
-
         self.view.create_fk_button.clicked.connect(self.create_fk_controllers)
-
         self.view.build_all_button.clicked.connect(self.build_joint_chain_and_fk)
 
     # ------------------------------------------------------------------
@@ -136,11 +134,7 @@ class RigBuildController(QtCore.QObject):
     def module_prefix(module_name, side):
         return "{}_{}".format(side, module_name)
 
-    def find_locator_guides(
-        self,
-        module_name,
-        side
-    ):
+    def find_locator_guides(self, module_name, side):
         prefix = self.module_prefix(module_name, side)
 
         pattern = "{}_*_guide".format(prefix)
@@ -202,7 +196,6 @@ class RigBuildController(QtCore.QObject):
         ]
 
         if not existing_target_guides:
-            # 使用现有 C++ 命令创建目标侧 locator 和 guide curve。
             self.execute_plugin_command(
                 PRE_BUILD_COMMAND_NAME,
                 side=target_side
@@ -302,8 +295,6 @@ class RigBuildController(QtCore.QObject):
     # ------------------------------------------------------------------
 
     def _create_locator_guides(self):
-        # 创建 guide 时只创建当前下拉菜单所选侧。
-        # Mirror 只控制骨骼和 FK 构建。
         self.execute_plugin_command(PRE_BUILD_COMMAND_NAME, side=self.current_side())
 
     def _create_joint_chain(self):
@@ -370,11 +361,7 @@ class RigBuildController(QtCore.QObject):
         except RuntimeError as error:
             raise RuntimeError("Could not load {}.\n\n{}".format(PLUGIN_NAME, error))
 
-    def show_error(
-        self,
-        title,
-        error
-    ):
+    def show_error(self, title, error):
         message = (
             "Module: {module}\n"
             "Side: {side}\n"
