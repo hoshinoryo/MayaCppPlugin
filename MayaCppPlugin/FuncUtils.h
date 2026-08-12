@@ -8,7 +8,11 @@ namespace FuncUtils
     bool objectExists(const MString& objectName);
     MStatus executeMayaCommand(const MString& command, const MString& errorMessage);
 
+    /// <summary>
+    /// Get DAG path from node name.
+    /// </summary>
     MStatus getDagPath(const MString& nodeName, MDagPath& dagPath);
+
     MStatus getShapeFromTransform(const MString& transformName, MDagPath& shapePath);
 
     MStatus setDisplayColor(const MObject& shapeObject, short colorIndex);

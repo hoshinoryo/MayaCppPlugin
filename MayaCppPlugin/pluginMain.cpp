@@ -4,8 +4,8 @@
 
 #include "BallBoxCommands.h"
 #include "testSample.h"
-#include "CustomCreateSphere.h"
-#include "CreateArmJointCommand.h"
+//#include "CustomCreateSphere.h"
+#include "CreateJointChain.h"
 #include "PreBuildBoneChain.h"
 #include "CreateFkController.h"
 
@@ -23,10 +23,10 @@ MStatus initializePlugin(MObject obj)
 	//MStatus status = fnPlugin.registerCommand(BallCmd, CreateBallCommand::creator);
 	//status = fnPlugin.registerCommand(BoxCmd, CreateBoxCommand::creator);
 	status = fnPlugin.registerCommand("testSample", testSample::creator);
-	status = fnPlugin.registerCommand("CustomSphere", CustomSphere::creator);
-	status = fnPlugin.registerCommand("CreateArmJoint", CreateArmJoint::creator);
-	status = fnPlugin.registerCommand("PreBuildBoneChain", PreBuildBoneChain::creator);
-	status = fnPlugin.registerCommand("CreateFkController", CreateFkController::creator);
+	//status = fnPlugin.registerCommand("CustomSphere", CustomSphere::creator);
+	status = fnPlugin.registerCommand("CreateJointChain", CreateJointChain::creator, CreateJointChain::newSyntax);
+	status = fnPlugin.registerCommand("PreBuildBoneChain", PreBuildBoneChain::creator, PreBuildBoneChain::newSyntax);
+	status = fnPlugin.registerCommand("CreateFkController", CreateFkController::creator, CreateFkController::newSyntax);
 	if (!status)
 	{
 		status.perror("Plugin commands registeration has failed!");
@@ -46,8 +46,8 @@ MStatus uninitializePlugin(MObject obj)
 	//MStatus status = fnPlugin.deregisterCommand(BallCmd);
 	//status = fnPlugin.deregisterCommand(BoxCmd);
 	status = fnPlugin.deregisterCommand("testSample");
-	status = fnPlugin.deregisterCommand("CustomSphere");
-	status = fnPlugin.deregisterCommand("CreateArmJoint");
+	//status = fnPlugin.deregisterCommand("CustomSphere");
+	status = fnPlugin.deregisterCommand("CreateJointChain");
 	status = fnPlugin.deregisterCommand("PreBuildBoneChain");
 	status = fnPlugin.deregisterCommand("CreateFkController");
 	if (!status)

@@ -16,6 +16,7 @@ namespace
     constexpr double MIN_DIRECTION_LENGTH = 0.000001;
 }
 
+
 bool FuncUtils::objectExists(const MString& objectName)
 {
     MSelectionList selectionList;
@@ -49,8 +50,7 @@ MStatus FuncUtils::getShapeFromTransform(const MString& transformName, MDagPath&
 {
     MStatus status;
 
-    status = getDagPath(transformName, shapePath);
-    RETURN_IF_MAYA_FAILED(status, "Cannot get transform path");
+    getDagPath(transformName, shapePath);
 
     if (!shapePath.hasFn(MFn::kTransform))
     {
@@ -106,8 +106,7 @@ MStatus FuncUtils::getTransformWorldPosition(const MString& transformNode, MVect
     MStatus status;
     MDagPath transformPath;
 
-    status = getDagPath(transformNode, transformPath);
-    RETURN_IF_MAYA_FAILED(status, "Cannot get transform");
+    getDagPath(transformNode, transformPath);
 
     MFnTransform transformFn(transformPath);
 
@@ -120,8 +119,8 @@ MStatus FuncUtils::getTransformWorldPosition(const MString& transformNode, MVect
 MStatus FuncUtils::matchWorldPositionAndRotation(const MString& destNode, const MString& sourceNode)
 {
     MStatus status;
-
     MDagPath destPath, sourcePath;
+
     getDagPath(destNode, destPath);
     getDagPath(sourceNode, sourcePath);
 

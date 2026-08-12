@@ -152,21 +152,25 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="BallBoxCommands.cpp" />
-    <ClCompile Include="CreateArmJointCommand.cpp" />
+    <ClCompile Include="CreateJointChain.cpp" />
     <ClCompile Include="CreateFkController.cpp" />
     <ClCompile Include="CustomCreateSphere.cpp" />
     <ClCompile Include="FuncUtils.cpp" />
     <ClCompile Include="FuncUtils.h" />
     <ClCompile Include="pluginMain.cpp" />
     <ClCompile Include="PreBuildBoneChain.cpp" />
+    <ClCompile Include="RigModuleRegistry.cpp" />
     <ClCompile Include="testSample.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BallBoxCommands.h" />
-    <ClInclude Include="CreateArmJointCommand.h" />
+    <ClInclude Include="BoneChainDefinition.h" />
+    <ClInclude Include="ChainCommandUtils.h" />
+    <ClInclude Include="CreateJointChain.h" />
     <ClInclude Include="CreateFkController.h" />
     <ClInclude Include="CustomCreateSphere.h" />
     <ClInclude Include="PreBuildBoneChain.h" />
+    <ClInclude Include="RigModuleRegistry.h" />
     <ClInclude Include="StatusUtils.h" />
     <ClInclude Include="testSample.h" />
   </ItemGroup>

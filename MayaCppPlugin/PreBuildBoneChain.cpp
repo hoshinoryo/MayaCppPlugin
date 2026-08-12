@@ -1,12 +1,8 @@
-///-------------------------------------------------------------------------------
-///shoulder_guide Å® shoulder_jnt
-///elbow_guide    Å® elbow_jnt
-///hand_guide     Å® hand_jnt
-///-------------------------------------------------------------------------------
-
 #include "PreBuildBoneChain.h"
 #include "StatusUtils.h"
 #include "FuncUtils.h"
+#include "ChainCommandUtils.h"
+#include "BoneChainDefinition.h"
 
 #include <maya/MFnDependencyNode.h>
 #include <maya/MPlug.h>
@@ -76,73 +72,89 @@ void* PreBuildBoneChain::creator()
     return new PreBuildBoneChain();
 }
 
+MSyntax PreBuildBoneChain::newSyntax()
+{
+    return ChainCommandUtils::createSyntax();
+}
+
 
 MStatus PreBuildBoneChain::doIt(const MArgList& args)
 {
     MStatus status;
+    BoneChainDefinition chain;
 
-    if (FuncUtils::objectExists("shoulder_guide") ||
-        FuncUtils::objectExists("elbow_guide") ||
-        FuncUtils::objectExists("hand_guide") ||
-        FuncUtils::objectExists("arm_guide_curve")
-        )
+    status = ChainCommandUtils::parseDefinition(syntax(), args, chain);
+    RETURN_IF_MAYA_FAILED(status, "Unable to read chain definition");
+
+    // Check before creation
+    if (chain.bones.size() < 2)
     {
-        MGlobal::displayError("Arm guides already exists."
-            "Delete the existing guides before creating them again."
-        );
-
+        MGlobal::displayError("A bone chain requires at least two guides");
         return MS::kFailure;
     }
 
-    // Create guide transforms and shapes
-    MObject shoulderTransform, shoulderShape;
-    MObject elbowTransform, elbowShape;
-    MObject handTransform, handShape;
+    for (const BoneDefinition& bone : chain.bones)
+    {
+        const MString guideName = chain.guideName(bone);
 
-    createGuideLocator("shoulder_guide", MVector(0.0, 10.0, 0.0), 17, shoulderTransform, shoulderShape);
-    createGuideLocator("elbow_guide",    MVector(5.0, 10.0, 0.0), 17, elbowTransform, elbowShape);
-    createGuideLocator("hand_guide",     MVector(9.0, 10.0, 0.0), 17, handTransform, handShape);
+        if (FuncUtils::objectExists(guideName))
+        {
+            MGlobal::displayError("Guide already exists: " + guideName);
+            return MS::kFailure;
+        }
+    }
 
-    // create cv curve
-    // cv[0] = shoulder, cv[1] = elbow, cv[2] = hand, degree = 1
+    if (FuncUtils::objectExists(chain.guideCurveName()))
+    {
+        MGlobal::displayError("Guide curve already exists: " + chain.guideCurveName());
+        return MS::kFailure;
+    }
+
+    std::vector<MObject> guideShapes; // guide locator shapes
+    guideShapes.reserve(chain.bones.size()); // reserve memory
+
     MPointArray curveCVs;
-    curveCVs.append(MPoint(0.0, 10.0, 0.0));
-    curveCVs.append(MPoint(5.0, 10.0, 0.0));
-    curveCVs.append(MPoint(9.0, 10.0, 0.0));
+
+    // Create guide locator and get curve cvs position
+    for (const BoneDefinition& bone : chain.bones)
+    {
+        MObject transform, shape;
+
+        status = createGuideLocator(chain.guideName(bone), bone.position, chain.guideColor, transform, shape);
+        RETURN_IF_MAYA_FAILED(status, "Cannot create guide locator");
+
+        guideShapes.push_back(shape);
+        curveCVs.append(MPoint(bone.position));
+    }
 
     MDoubleArray knots;
-    knots.append(0.0);
-    knots.append(1.0);
-    knots.append(2.0);
+
+    for (unsigned int i = 0; i < chain.bones.size(); i++)
+    {
+        knots.append(static_cast<double>(i));
+    }
 
     MFnTransform curveTransformFn;
     MObject curveTransform = curveTransformFn.create(MObject::kNullObj, &status); // create curve transform node
     RETURN_IF_MAYA_FAILED(status, "Failed to create curve transform");
-
-    curveTransformFn.setName("arm_guide_curve", false);
+    curveTransformFn.setName(chain.guideCurveName(), false);
 
     MFnNurbsCurve curveFn;
     MObject curveShape = curveFn.create(curveCVs, knots, 1, MFnNurbsCurve::kOpen, false, false, curveTransform, &status);
     RETURN_IF_MAYA_FAILED(status, "Failed to create curve shape");
+    curveFn.setName(chain.guideCurveName() + "Shape", false);
 
-    curveFn.setName("arm_guide_curveShape", false);
-
-    status = FuncUtils::setDisplayColor(curveShape, 18);
-    RETURN_IF_MAYA_FAILED(status, "Cannot set curve color");
+    FuncUtils::setDisplayColor(curveShape, chain.guideCurveColor);
 
     // connect dependency graph
     MDGModifier dgModifier;
-    status = connectLocatorToCurveCV(shoulderShape, curveShape, 0, dgModifier);
-    RETURN_IF_MAYA_FAILED(status, "shoulder connection failed");
-
-    status = connectLocatorToCurveCV(elbowShape, curveShape, 1, dgModifier);
-    RETURN_IF_MAYA_FAILED(status, "elbow connection failed");
-
-    status = connectLocatorToCurveCV(handShape, curveShape, 2, dgModifier);
-    RETURN_IF_MAYA_FAILED(status, "hand connection failed");
-
+    for (unsigned int i = 0; i < guideShapes.size(); i++)
+    {
+        status = connectLocatorToCurveCV(guideShapes[i], curveShape, i, dgModifier);
+    }
+    
     status = dgModifier.doIt();
-    RETURN_IF_MAYA_FAILED(status, "Failed to connect guides to curve");
+    RETURN_IF_MAYA_FAILED(status, "Failed to apply guide connections");
 
     MGlobal::displayInfo("Shoulder, elbow and hand guides created successful.");
 
