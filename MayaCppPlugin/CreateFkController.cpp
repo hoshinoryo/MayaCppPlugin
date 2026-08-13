@@ -9,7 +9,17 @@
 
 namespace
 {
-    MStatus createController(
+    MString fkControllerName(const BoneChainDefinition& chain, const BoneDefinition& bone)
+    {
+        return chain.prefix() + "_" + bone.label + "_fk_ctrl";
+    }
+
+    MString fkControllerGroupName(const BoneChainDefinition& chain, const BoneDefinition& bone)
+    {
+        return chain.prefix() + "_" + bone.label + "_fk_ctrl_grp";
+    }
+
+    MStatus createFkController(
         const MString& controllerName,
         const MString& groupName,
         const MString& jointName,
@@ -27,7 +37,7 @@ namespace
         // Create circle controller
         command.format("circle -name \"^1s\" -normal 1 0 0 -radius ^2s -constructionHistory false",
             controllerName, radiusString);
-        status = FuncUtils::executeMayaCommand(command, "Cannot create controller circle");
+        status = FuncUtils::executeMayaCommand(command, "Cannot create FK controller circle");
 
         // Create empty group
         command.format("group -name \"^1s\" \"^2s\"", groupName, controllerName);
@@ -63,9 +73,9 @@ MStatus CreateFkController::doIt(const MArgList& args)
 
     for (const BoneDefinition& bone : m_Chain.bones)
     {
-        const MString jointName = m_Chain.jointName(bone);
-        const MString controllerName = m_Chain.controllerName(bone);
-        const MString groupName = m_Chain.controllerGroupName(bone);
+        const MString jointName = m_Chain.jointName(bone, "fk");
+        const MString controllerName = fkControllerName(m_Chain, bone);
+        const MString groupName = fkControllerGroupName(m_Chain, bone);
 
         if (!FuncUtils::objectExists(jointName))
         {
@@ -90,10 +100,10 @@ MStatus CreateFkController::redoIt()
 
     for (const BoneDefinition& bone : m_Chain.bones)
     {
-        status = createController(
-            m_Chain.controllerName(bone),
-            m_Chain.controllerGroupName(bone),
-            m_Chain.jointName(bone),
+        status = createFkController(
+            fkControllerName(m_Chain, bone),
+            fkControllerGroupName(m_Chain, bone),
+            m_Chain.jointName(bone, "fk"),
             bone.constrollerRadius,
             m_Chain.controllerColor
             );
@@ -103,8 +113,8 @@ MStatus CreateFkController::redoIt()
     // Create FK hierachy
     for (size_t i = 1; i < m_Chain.bones.size(); i++)
     {
-        const MString parentController = m_Chain.controllerName(m_Chain.bones[i - 1]);
-        const MString childGroup = m_Chain.controllerGroupName(m_Chain.bones[i]);
+        const MString parentController = fkControllerName(m_Chain, m_Chain.bones[i - 1]);
+        const MString childGroup = fkControllerGroupName(m_Chain, m_Chain.bones[i]);
 
         MString command;
         command.format("parent -absolute \"^1s\" \"^2s\"", childGroup, parentController);
@@ -114,12 +124,12 @@ MStatus CreateFkController::redoIt()
     // Controller constraint joints
     for (const BoneDefinition& bone : m_Chain.bones)
     {
-        const MString controllerName = m_Chain.controllerName(bone);
-        const MString jointName = m_Chain.jointName(bone);
+        const MString controllerName = fkControllerName(m_Chain, bone);
+        const MString jointName = m_Chain.jointName(bone, "fk");
 
         MString command;
         command.format("parentConstraint -maintainOffset -name \"^1s\" \"^2s\" \"^3s\"",
-            jointName + "_parentConstriant", controllerName, jointName);
+            jointName + "_parentConstraint", controllerName, jointName);
         status = FuncUtils::executeMayaCommand(command,"Cannot create FK parent constraint");
     }
 

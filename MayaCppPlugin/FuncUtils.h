@@ -18,7 +18,9 @@ namespace FuncUtils
     MStatus setDisplayColor(const MObject& shapeObject, short colorIndex);
     MStatus setLocatorSize(const MObject& locatorShape, double size);
 
-    MStatus getTransformWorldPosition(const MString& transformNode, MVector& worldPosition);
+    MStatus getWorldPosition(const MString& transformNode, MVector& worldPosition); // getter
+    MStatus setWorldPosition(const MString& transformNode, const MVector& worldPosition); // setter
+
     MStatus matchWorldPositionAndRotation(const MString& destinationNode, const MString& sourceNode);
     MStatus buildAimOrientationMatrix(const MVector& startPosition, const MVector& endPosition, MMatrix& orientationMatrix);
     MQuaternion matrixToQuaternion(const MMatrix& matrix);

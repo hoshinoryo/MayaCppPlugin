@@ -101,7 +101,7 @@ MStatus FuncUtils::setLocatorSize(const MObject& locatorShape, double size)
     return MS::kSuccess;
 }
 
-MStatus FuncUtils::getTransformWorldPosition(const MString& transformNode, MVector& worldPosition)
+MStatus FuncUtils::getWorldPosition(const MString& transformNode, MVector& worldPosition)
 {
     MStatus status;
     MDagPath transformPath;
@@ -112,6 +112,21 @@ MStatus FuncUtils::getTransformWorldPosition(const MString& transformNode, MVect
 
     worldPosition = transformFn.getTranslation(MSpace::kWorld, &status);
     RETURN_IF_MAYA_FAILED(status, "Cannot read transform world position");
+
+    return MS::kSuccess;
+}
+
+MStatus FuncUtils::setWorldPosition(const MString& transformNode, const MVector& worldPosition)
+{
+    MStatus status;
+    MDagPath transformPath;
+
+    getDagPath(transformNode, transformPath);
+
+    MFnTransform transformFn(transformPath);
+
+    status = transformFn.setTranslation(worldPosition, MSpace::kWorld);
+    RETURN_IF_MAYA_FAILED(status, "Cannot set transform world position");
 
     return MS::kSuccess;
 }

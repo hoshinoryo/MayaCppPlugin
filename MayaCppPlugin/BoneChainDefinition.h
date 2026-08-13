@@ -44,23 +44,13 @@ struct BoneChainDefinition
 		return prefix() + "_" + bone.label + "_guide";
 	}
 
-	MString jointName(const BoneDefinition& bone) const
-	{
-		return prefix() + "_" + bone.label + "_jnt";
-	}
-
-	MString controllerName(const BoneDefinition& bone) const
-	{
-		return prefix() + "_" + bone.label + "_ctrl";
-	}
-
-	MString controllerGroupName(const BoneDefinition& bone) const
-	{
-		return prefix() + "_" + bone.label + "_ctrl_grp";
-	}
-
 	MString guideCurveName() const
 	{
 		return prefix() + "_guide_curve";
+	}
+
+	MString jointName(const BoneDefinition& bone, const MString& chainType) const
+	{
+		return prefix() + "_" + bone.label + "_" + chainType + "_jnt";
 	}
 };

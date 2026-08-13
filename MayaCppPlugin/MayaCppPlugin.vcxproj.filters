@@ -48,6 +48,9 @@
     <ClCompile Include="FuncUtils.h">
       <Filter>ヘッダー ファイル\Utility</Filter>
     </ClCompile>
+    <ClCompile Include="CreateIkController.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BallBoxCommands.h">
@@ -79,6 +82,9 @@
     </ClInclude>
     <ClInclude Include="StatusUtils.h">
       <Filter>ヘッダー ファイル\Utility</Filter>
+    </ClInclude>
+    <ClInclude Include="CreateIkController.h">
+      <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

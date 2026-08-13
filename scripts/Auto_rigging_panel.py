@@ -11,6 +11,8 @@ PLUGIN_NAME = "MayaCppPlugin"
 PRE_BUILD_COMMAND_NAME = "PreBuildBoneChain"
 CREATE_JOINT_COMMAND_NAME = "CreateJointChain"
 CREATE_FK_COMMAND_NAME = "CreateFkController"
+CREATE_IK_COMMAND_NAME = "CreateIkController"
+
 
 # Module management
 MODULE_ORDER = (
@@ -30,7 +32,6 @@ _panel_controller = None
 
 
 class RigBuildController(QtCore.QObject):
-
     """
     Connects the rig-building UI to Maya commands.
 
@@ -44,18 +45,16 @@ class RigBuildController(QtCore.QObject):
         super(RigBuildController, self).__init__(self.view)
 
         self.create_connections()
-        self.update_side_options()
+        self.update_module_options()
 
     # ------------------------------------------------------------------
     # UI connections
     # ------------------------------------------------------------------
 
     def create_connections(self):
-        self.view.module_combo_box.currentTextChanged.connect(self.update_side_options)
+        self.view.module_combo_box.currentTextChanged.connect(self.update_module_options)
         self.view.create_guides_button.clicked.connect(self.create_locator_guides)
-        self.view.create_joint_chain_button.clicked.connect(self.create_joint_chain)
-        self.view.create_fk_button.clicked.connect(self.create_fk_controllers)
-        self.view.build_all_button.clicked.connect(self.build_joint_chain_and_fk)
+        self.view.build_all_button.clicked.connect(self.build_joint_chains_and_controllers)
 
     # ------------------------------------------------------------------
     # Current UI state
@@ -67,11 +66,14 @@ class RigBuildController(QtCore.QObject):
     def current_side(self):
         return self.view.side_combo_box.currentText()
 
+    def fk_enabled(self):
+        return self.view.fk_check_box.isChecked()
+
+    def ik_enabled(self):
+        return self.view.ik_check_box.isEnabled() and self.view.ik_check_box.isChecked()
+
     def mirror_enabled(self):
-        return (
-            self.view.mirror_check_box.isEnabled()
-            and self.view.mirror_check_box.isChecked()
-        )
+        return self.view.mirror_check_box.isEnabled() and self.view.mirror_check_box.isChecked()
 
     def command_arguments(self, side=None):
         return {
@@ -80,18 +82,16 @@ class RigBuildController(QtCore.QObject):
         }
 
     @QtCore.Slot(str)
-    def update_side_options(self, _module_name=None):
+    def update_module_options(self, _module_name=None):
         module_name = self.current_module()
+        allowed_sides = MODULE_SIDES.get(module_name, ("M",))
 
-        allowed_sides = MODULE_SIDES.get(module_name,("M",))
-
-        side_combo_box = (self.view.side_combo_box)
-
+        side_combo_box = self.view.side_combo_box
         side_combo_box.blockSignals(True)
         side_combo_box.clear()
         side_combo_box.addItems(allowed_sides)
 
-        # Default : L
+        # Default side: L
         if "L" in allowed_sides:
             side_combo_box.setCurrentText("L")
         else:
@@ -99,19 +99,23 @@ class RigBuildController(QtCore.QObject):
 
         side_combo_box.blockSignals(False)
 
-        can_mirror = ("L" in allowed_sides and "R" in allowed_sides)
-
+        can_mirror = "L" in allowed_sides and "R" in allowed_sides
         self.view.mirror_check_box.setEnabled(can_mirror)
 
         if can_mirror:
-            self.view.mirror_check_box.setToolTip(
-                "Build the current side and its mirrored side."
-            )
+            self.view.mirror_check_box.setToolTip("Build the current side and its mirrored side.")
         else:
             self.view.mirror_check_box.setChecked(False)
-            self.view.mirror_check_box.setToolTip(
-                "Mirror is unavailable for center modules."
-            )
+            self.view.mirror_check_box.setToolTip("Mirror is unavailable for center modules.")
+
+        ik_available = module_name == "arm"
+        self.view.ik_check_box.setEnabled(ik_available)
+        self.view.ik_check_box.setChecked(ik_available)
+
+        if ik_available:
+            self.view.ik_check_box.setToolTip("Build the IK joint chain and IK controllers.")
+        else:
+            self.view.ik_check_box.setToolTip("IK is currently available only for the arm module.")
 
     # ------------------------------------------------------------------
     # Guide name helpers
@@ -136,15 +140,9 @@ class RigBuildController(QtCore.QObject):
 
     def find_locator_guides(self, module_name, side):
         prefix = self.module_prefix(module_name, side)
-
         pattern = "{}_*_guide".format(prefix)
 
-        possible_guides = cmds.ls(
-            pattern,
-            type="transform",
-            long=False
-        ) or []
-
+        possible_guides = cmds.ls(pattern, type="transform", long=False) or []
         locator_guides = []
 
         for transform_name in possible_guides:
@@ -172,7 +170,6 @@ class RigBuildController(QtCore.QObject):
             raise RuntimeError("The {} module cannot be mirrored.".format(module_name))
 
         target_side = self.opposite_side(source_side)
-
         source_guides = self.find_locator_guides(module_name, source_side)
 
         if not source_guides:
@@ -196,15 +193,9 @@ class RigBuildController(QtCore.QObject):
         ]
 
         if not existing_target_guides:
-            self.execute_plugin_command(
-                PRE_BUILD_COMMAND_NAME,
-                side=target_side
-            )
+            self.execute_plugin_command(PRE_BUILD_COMMAND_NAME, side=target_side)
 
-        elif (
-            len(existing_target_guides)
-            != len(target_guide_names)
-        ):
+        elif len(existing_target_guides) != len(target_guide_names):
             missing_target_guides = [
                 target_guide
                 for target_guide in target_guide_names
@@ -216,10 +207,7 @@ class RigBuildController(QtCore.QObject):
                 "Missing guides:\n{}".format("\n".join(missing_target_guides))
             )
 
-        for source_guide, target_guide in zip(
-            source_guides,
-            target_guide_names
-        ):
+        for source_guide, target_guide in zip(source_guides, target_guide_names):
             if not cmds.objExists(target_guide):
                 raise RuntimeError("The target guide was not created: {}".format(target_guide))
 
@@ -233,30 +221,13 @@ class RigBuildController(QtCore.QObject):
 
             cmds.xform(target_guide, worldSpace=True, translation=mirrored_position)
 
-        return (
-            source_side,
-            target_side,
-        )
+        return source_side, target_side
 
-    def joint_build_sides(self):
+    def build_sides(self):
         if not self.mirror_enabled():
-            return (
-                self.current_side(),
-            )
+            return (self.current_side(),)
 
         return self.mirror_locator_guides()
-
-    def fk_build_sides(self):
-        if not self.mirror_enabled():
-            return (
-                self.current_side(),
-            )
-
-        source_side = self.current_side()
-
-        return (source_side,
-            self.opposite_side(source_side),
-        )
 
     # ------------------------------------------------------------------
     # Button handlers
@@ -264,30 +235,13 @@ class RigBuildController(QtCore.QObject):
 
     @QtCore.Slot()
     def create_locator_guides(self):
-        self.run_build_action(
-            self._create_locator_guides,
-            "Create Locator Guides Failed"
-        )
+        self.run_build_action(self._create_locator_guides, "Create Locator Guides Failed")
 
     @QtCore.Slot()
-    def create_joint_chain(self):
+    def build_joint_chains_and_controllers(self):
         self.run_build_action(
-            self._create_joint_chain,
-            "Create Joint Chain Failed"
-        )
-
-    @QtCore.Slot()
-    def create_fk_controllers(self):
-        self.run_build_action(
-            self._create_fk_controllers,
-            "Create FK Controllers Failed"
-        )
-
-    @QtCore.Slot()
-    def build_joint_chain_and_fk(self):
-        self.run_build_action(
-            self._build_joint_chain_and_fk,
-            "Build Joint Chain and FK Failed"
+            self._build_joint_chains_and_controllers,
+            "Build Joint Chains and Controllers Failed"
         )
 
     # ------------------------------------------------------------------
@@ -297,37 +251,42 @@ class RigBuildController(QtCore.QObject):
     def _create_locator_guides(self):
         self.execute_plugin_command(PRE_BUILD_COMMAND_NAME, side=self.current_side())
 
-    def _create_joint_chain(self):
-        build_sides = self.joint_build_sides()
+    def _build_joint_chains_and_controllers(self):
+        if not self.fk_enabled() and not self.ik_enabled():
+            raise RuntimeError("Select at least one rig type: FK or IK.")
 
+        build_sides = self.build_sides()
+
+        # Create all selected joint chains first.
         for side in build_sides:
-            self.execute_plugin_command(CREATE_JOINT_COMMAND_NAME, side=side)
+            if self.fk_enabled():
+                self.execute_plugin_command(CREATE_JOINT_COMMAND_NAME, side=side, chainType="fk")
 
-    def _create_fk_controllers(self):
-        build_sides = self.fk_build_sides()
+            if self.ik_enabled():
+                self.execute_plugin_command(CREATE_JOINT_COMMAND_NAME, side=side, chainType="ik")
 
+        # Create controllers after all joint chains exist.
         for side in build_sides:
-            self.execute_plugin_command(CREATE_FK_COMMAND_NAME, side=side)
+            if self.fk_enabled():
+                self.execute_plugin_command(CREATE_FK_COMMAND_NAME, side=side)
 
-    def _build_joint_chain_and_fk(self):
-        build_sides = self.joint_build_sides()
-
-        for side in build_sides:
-            self.execute_plugin_command(CREATE_JOINT_COMMAND_NAME, side=side)
-        for side in build_sides:
-            self.execute_plugin_command(CREATE_FK_COMMAND_NAME, side=side)
+            if self.ik_enabled():
+                self.execute_plugin_command(CREATE_IK_COMMAND_NAME, side=side)
 
     # ------------------------------------------------------------------
     # Maya command execution
     # ------------------------------------------------------------------
 
-    def execute_plugin_command(self, command_name, side=None):
+    def execute_plugin_command(self, command_name, side=None, **extra_arguments):
         command = getattr(cmds, command_name, None)
 
         if command is None:
             raise RuntimeError("Maya command is not registered: {}".format(command_name))
 
-        return command(**self.command_arguments(side=side))
+        arguments = self.command_arguments(side=side)
+        arguments.update(extra_arguments)
+
+        return command(**arguments)
 
     # ------------------------------------------------------------------
     # Error handling
@@ -365,16 +324,16 @@ class RigBuildController(QtCore.QObject):
         message = (
             "Module: {module}\n"
             "Side: {side}\n"
+            "FK: {fk}\n"
+            "IK: {ik}\n"
             "Mirror: {mirror}\n\n"
             "{error}"
         ).format(
             module=self.current_module(),
             side=self.current_side(),
-            mirror=(
-                "On"
-                if self.mirror_enabled()
-                else "Off"
-            ),
+            fk="On" if self.fk_enabled() else "Off",
+            ik="On" if self.ik_enabled() else "Off",
+            mirror="On" if self.mirror_enabled() else "Off",
             error=error
         )
 
@@ -385,8 +344,30 @@ class RigBuildController(QtCore.QObject):
     # ------------------------------------------------------------------
 
     def show(self):
-        self.view.show(dockable=True, area="right",floating=True)
+        self.view.show(dockable=True, area="right", floating=True)
 
     def close(self):
         self.view.close()
         self.view.deleteLater()
+
+# ------------------------------------------------------------------
+# Show panel
+# ------------------------------------------------------------------
+def show_panel():
+    global _panel_controller
+
+    workspace_control = RigBuildView.OBJECT_NAME + "WorkspaceControl"
+
+    if cmds.workspaceControl(workspace_control, query=True, exists=True):
+        cmds.deleteUI(workspace_control)
+
+    if _panel_controller is not None:
+        try:
+            _panel_controller.close()
+        except RuntimeError:
+            pass
+
+    _panel_controller = RigBuildController()
+    _panel_controller.show()
+
+    return _panel_controller

@@ -6,6 +6,10 @@
 // 3. Convert world orientations into local joint orientations relative to the parent.
 // 4. Create the joints in order and build the parent-child hierarchy.
 //-----------------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------------------
+// CreateJointChain-specific flag: chainType
+//-----------------------------------------------------------------------------------------
+
 
 #include "CreateJointChain.h"
 #include "FuncUtils.h"
@@ -21,6 +25,7 @@
 #include <maya/MString.h>
 #include <maya/MQuaternion.h>
 #include <maya/MMatrix.h>
+#include <maya/MArgDatabase.h>
 
 
 void* CreateJointChain::creator()
@@ -30,7 +35,10 @@ void* CreateJointChain::creator()
 
 MSyntax CreateJointChain::newSyntax()
 {
-    return ChainCommandUtils::createSyntax();
+    MSyntax syntax = ChainCommandUtils::createSyntax();
+    syntax.addFlag("-ct", "-chainType", MSyntax::kString);
+
+    return syntax;
 }
 
 MStatus CreateJointChain::doIt(const MArgList& args)
@@ -40,6 +48,32 @@ MStatus CreateJointChain::doIt(const MArgList& args)
 
     status = ChainCommandUtils::parseDefinition(syntax(), args, chain);
     RETURN_IF_MAYA_FAILED(status, "Cannot read chain definition");
+
+    if (chain.module != "arm")
+    {
+        MGlobal::displayError("FK and IK joint chains currently support only the arm module");
+        return MS::kInvalidParameter;
+    }
+
+    MArgDatabase database(syntax(), args, &status);
+    RETURN_IF_MAYA_FAILED(status, "Cannot read command arguments");
+    
+    // Get chain type
+    MString chainType;
+    if (!database.isFlagSet("-chainType"))
+    {
+        MGlobal::displayError("chainType is required. Use fk or ik");
+        return MS::kInvalidParameter;
+    }
+    database.getFlagArgument("-chainType", 0, chainType);
+    chainType.toLowerCase();
+
+    if (chainType != "fk" && chainType != "ik")
+    {
+        MGlobal::displayError("chainType must be fk or ik");
+        return MS::kInvalidParameter;
+    }
+
 
     const size_t boneCount = chain.bones.size();
     if (boneCount < 2)
@@ -58,7 +92,7 @@ MStatus CreateJointChain::doIt(const MArgList& args)
     for (size_t i = 0; i < boneCount; i++)
     {
         const MString guideName = chain.guideName(chain.bones[i]);
-        const MString jointName = chain.jointName(chain.bones[i]);
+        const MString jointName = chain.jointName(chain.bones[i], chainType);
         
         if (!FuncUtils::objectExists(guideName))
         {
@@ -73,8 +107,8 @@ MStatus CreateJointChain::doIt(const MArgList& args)
         }
 
         // Read position from locator guide
-        status = FuncUtils::getTransformWorldPosition(guideName, worldPositions[i]);
-        RETURN_IF_MAYA_FAILED(status, "annot read guide position");
+        status = FuncUtils::getWorldPosition(guideName, worldPositions[i]);
+        RETURN_IF_MAYA_FAILED(status, "Cannot read guide position");
     }
 
     for (size_t i = 0; i < boneCount - 1; i++)
@@ -116,7 +150,7 @@ MStatus CreateJointChain::doIt(const MArgList& args)
         MObject jointObject = jointFn.create(parentObject, &status);
         RETURN_IF_MAYA_FAILED(status, "Cannot create joint");
 
-        jointFn.setName(chain.jointName(chain.bones[i]), false);
+        jointFn.setName(chain.jointName(chain.bones[i], chainType), false);
 
         // Set position
         status = jointFn.setTranslation(localTranslations[i], MSpace::kTransform);
@@ -129,7 +163,7 @@ MStatus CreateJointChain::doIt(const MArgList& args)
         parentObject = jointObject;
     }
 
-    MGlobal::displayInfo(chain.prefix() + " joint chain created successfully");
+    MGlobal::displayInfo(chain.prefix() + " " + chainType + " joint chain created successfully");
 
     return MS::kSuccess;
 }

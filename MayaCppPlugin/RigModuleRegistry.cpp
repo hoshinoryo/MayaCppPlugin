@@ -33,7 +33,7 @@ namespace
             },
             {
                 "elbow",
-                MVector(5.0 * direction, 10.0, 0.0),
+                MVector(5.0 * direction, 10.0, -0.5),
                 1.2
             },
             {

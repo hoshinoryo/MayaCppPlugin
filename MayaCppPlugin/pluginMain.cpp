@@ -8,6 +8,7 @@
 #include "CreateJointChain.h"
 #include "PreBuildBoneChain.h"
 #include "CreateFkController.h"
+#include "CreateIkController.h"
 
 //const MString BallCmd = "ball";
 //const MString BoxCmd = "box";
@@ -27,6 +28,7 @@ MStatus initializePlugin(MObject obj)
 	status = fnPlugin.registerCommand("CreateJointChain", CreateJointChain::creator, CreateJointChain::newSyntax);
 	status = fnPlugin.registerCommand("PreBuildBoneChain", PreBuildBoneChain::creator, PreBuildBoneChain::newSyntax);
 	status = fnPlugin.registerCommand("CreateFkController", CreateFkController::creator, CreateFkController::newSyntax);
+	status = fnPlugin.registerCommand("CreateIkController", CreateIkController::creator, CreateIkController::newSyntax);
 	if (!status)
 	{
 		status.perror("Plugin commands registeration has failed!");
@@ -50,6 +52,7 @@ MStatus uninitializePlugin(MObject obj)
 	status = fnPlugin.deregisterCommand("CreateJointChain");
 	status = fnPlugin.deregisterCommand("PreBuildBoneChain");
 	status = fnPlugin.deregisterCommand("CreateFkController");
+	status = fnPlugin.deregisterCommand("CreateIkController");
 	if (!status)
 	{
 		status.perror("Plugin commands de-registeration has failed!");
