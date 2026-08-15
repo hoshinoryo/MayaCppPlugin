@@ -14,40 +14,6 @@ namespace
     {
         return chain.prefix() + "_" + bone.label + "_fk_ctrl";
     }
-
-    /*
-    MString fkControllerGroupName(const BoneChainDefinition& chain, const BoneDefinition& bone)
-    {
-        return ControllerShapeUtils::controllerGroupName(fkControllerName(chain, bone));
-    }
-
-    MStatus createFkController(
-        const MString& controllerName,
-        const MString& jointName,
-        double radius,
-        short colorIndex
-    )
-    {
-        MStatus status;
-        MObject controllerTransform;
-        const MString controllerGroupName = ControllerShapeUtils::controllerGroupName(controllerName);
-
-        status = ControllerShapeUtils::createController(
-            controllerName,
-            ControllerShapeUtils::ShapeType::Circle,
-            radius,
-            controllerTransform);
-        RETURN_IF_MAYA_FAILED(status, "Unable to create FK controller");
-
-        // Match group to joints
-        FuncUtils::matchWorldPositionAndRotation(controllerGroupName, jointName);
-
-        MDagPath shapePath;
-        FuncUtils::getShapeFromTransform(controllerName, shapePath);
-
-        return FuncUtils::setDisplayColor(shapePath.node(), colorIndex);
-    }
-    */
 }
 
 void* CreateFkController::creator()

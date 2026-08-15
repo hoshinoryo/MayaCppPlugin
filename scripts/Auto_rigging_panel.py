@@ -109,7 +109,7 @@ class RigBuildController(QtCore.QObject):
             self.view.mirror_check_box.setChecked(False)
             self.view.mirror_check_box.setToolTip("Mirror is unavailable for center modules.")
 
-        ik_available = module_name == "arm"
+        ik_available = module_name in ("arm", "leg")
         self.view.ik_check_box.setEnabled(ik_available)
         self.view.ik_check_box.setChecked(ik_available)
 
