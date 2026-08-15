@@ -45,16 +45,16 @@ namespace
     {
         MPointArray points;
 
-        points.append(MPoint(0.0, -0.5, -0.5));
-        points.append(MPoint(0.0, -0.5,  0.5));
-        points.append(MPoint(0.0,  0.5,  0.5));
-        points.append(MPoint(0.0,  0.5, -0.5));
-        points.append(MPoint(0.0, -0.5, -0.5));
-        points.append(MPoint(1.0,  0.0,  0.0));
-        points.append(MPoint(0.0, -0.5,  0.5));
-        points.append(MPoint(0.0,  0.5,  0.5));
-        points.append(MPoint(1.0,  0.0,  0.0));
-        points.append(MPoint(0.0,  0.5, -0.5));
+        points.append(MPoint(-0.5, -0.5, 0.0));
+        points.append(MPoint( 0.5, -0.5, 0.0));
+        points.append(MPoint( 0.5,  0.5, 0.0));
+        points.append(MPoint(-0.5,  0.5, 0.0));
+        points.append(MPoint(-0.5, -0.5, 0.0));
+        points.append(MPoint( 0.0,  0.0, 2.0));
+        points.append(MPoint( 0.5, -0.5, 0.0));
+        points.append(MPoint( 0.5,  0.5, 0.0));
+        points.append(MPoint( 0.0,  0.0, 2.0));
+        points.append(MPoint(-0.5,  0.5, 0.0));
 
         return points;
     }

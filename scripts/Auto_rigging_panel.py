@@ -159,76 +159,6 @@ class RigBuildController(QtCore.QObject):
 
         return sorted(locator_guides)
 
-    # ------------------------------------------------------------------
-    # Mirror implementation
-    # ------------------------------------------------------------------
-
-    def mirror_locator_guides(self):
-        module_name = self.current_module()
-        source_side = self.current_side()
-
-        if source_side not in ("L", "R"):
-            raise RuntimeError("The {} module cannot be mirrored.".format(module_name))
-
-        target_side = self.opposite_side(source_side)
-        source_guides = self.find_locator_guides(module_name, source_side)
-
-        if not source_guides:
-            raise RuntimeError(
-                "No locator guides were found for {}_{}.\n\n"
-                "Create and position the current side guides first.".format(source_side, module_name)
-            )
-
-        source_prefix = self.module_prefix(module_name, source_side)
-        target_prefix = self.module_prefix(module_name, target_side)
-
-        target_guide_names = [
-            source_guide.replace(source_prefix, target_prefix, 1)
-            for source_guide in source_guides
-        ]
-
-        existing_target_guides = [
-            target_guide
-            for target_guide in target_guide_names
-            if cmds.objExists(target_guide)
-        ]
-
-        if not existing_target_guides:
-            self.execute_plugin_command(PRE_BUILD_COMMAND_NAME, side=target_side)
-
-        elif len(existing_target_guides) != len(target_guide_names):
-            missing_target_guides = [
-                target_guide
-                for target_guide in target_guide_names
-                if not cmds.objExists(target_guide)
-            ]
-
-            raise RuntimeError(
-                "The target-side guides are incomplete.\n\n"
-                "Missing guides:\n{}".format("\n".join(missing_target_guides))
-            )
-
-        for source_guide, target_guide in zip(source_guides, target_guide_names):
-            if not cmds.objExists(target_guide):
-                raise RuntimeError("The target guide was not created: {}".format(target_guide))
-
-            source_position = cmds.xform(source_guide, query=True, worldSpace=True, translation=True)
-
-            mirrored_position = (
-                -source_position[0],
-                source_position[1],
-                source_position[2],
-            )
-
-            cmds.xform(target_guide, worldSpace=True, translation=mirrored_position)
-
-        return source_side, target_side
-
-    def build_sides(self):
-        if not self.mirror_enabled():
-            return (self.current_side(),)
-
-        return self.mirror_locator_guides()
 
     # ------------------------------------------------------------------
     # Button handlers
@@ -257,16 +187,16 @@ class RigBuildController(QtCore.QObject):
             raise RuntimeError("Select at least one rig type: FK or IK.")
 
         source_side = self.current_side()
-        build_sides = self.build_sides()
+        build_sides = (source_side,)
 
-        # Only current side joints creation
+        # Only source side to source joints
         if self.fk_enabled():
             self.execute_plugin_command(CREATE_JOINT_COMMAND_NAME, side = source_side, chainType="fk")
 
         if self.ik_enabled():
             self.execute_plugin_command(CREATE_JOINT_COMMAND_NAME, side = source_side, chainType="ik")
 
-        # If mirror is checked
+        # If mirror is checked, build target joints
         if self.mirror_enabled():
             target_side = self.opposite_side(source_side)
 
@@ -275,7 +205,7 @@ class RigBuildController(QtCore.QObject):
             if self.ik_enabled():
                 self.execute_plugin_command(MIRROR_JOINT_COMMAND_NAME, side = source_side, chainType="ik")
 
-            build_sides = (source_side, target_side)
+            build_sides = (source_side, target_side) # now both sides in controllers build list
 
         # Create controllers after all joint chains exist.
         for side in build_sides:

@@ -12,14 +12,62 @@
 #include <maya/MVector.h>
 #include <maya/MPointArray.h>
 #include <maya/MFnNurbsCurve.h>
+#include <maya/MDagModifier.h>
 
 
 namespace
 {
+    constexpr double GUIDE_LOCATOR_SIZE = 0.5;
+    constexpr double LABEL_HEIGHT = 0.8;
+
+    MStatus setNodeUnselectable(const MObject& node)
+    {
+        MStatus status;
+        MFnDependencyNode nodeFn(node);
+
+        MPlug overrideEnabled = nodeFn.findPlug("overrideEnabled", true);
+        overrideEnabled.setBool(true);
+
+        MPlug overrideDisplayTypePlug = nodeFn.findPlug("overrideDisplayType", true);
+        overrideDisplayTypePlug.setShort(2); // 0 - Normal, 1 - Template, 2 - Reference
+
+        return MS::kSuccess;
+    }
+
+    MStatus createGuideLabel(const MString& guideName, const MString& label, const MObject& guideTransform)
+    {
+        MStatus status;
+        MFnTransform labelTransformFn; // child of guide locator
+
+        MObject labelTransform = labelTransformFn.create(guideTransform, &status);
+        RETURN_IF_MAYA_FAILED(status, "Cannot create guide label transform");
+
+        labelTransformFn.setName(guideName + "_label", false);
+        labelTransformFn.setTranslation(MVector(0.0, LABEL_HEIGHT, 0.0), MSpace::kTransform);
+
+        MFnDagNode annotationDagFn; // set annotation's attribute
+        MObject annotationShape = annotationDagFn.create("annotationShape", labelTransform, &status);
+        RETURN_IF_MAYA_FAILED(status, "Cannot create annotationShape");
+        annotationDagFn.setName(guideName + "_labelShape", false);
+
+        MFnDependencyNode annotationNodeFn(annotationShape);
+        MPlug textPlug = annotationNodeFn.findPlug("text", true);
+        textPlug.setString(label);
+        MPlug displayArrowPlug = annotationNodeFn.findPlug("displayArrow", true);
+        displayArrowPlug.setBool(false);
+
+        setNodeUnselectable(labelTransform);
+        setNodeUnselectable(annotationShape);
+
+        return MS::kSuccess;
+    }
+
     MStatus createGuideLocator(
         const MString& transformName,
-        const MVector& worldPosition,
+        const MString& label,
+        const MVector& localPosition,
         short colorIndex,
+        const MObject& parentTransform,
         MObject& locatorTransform,
         MObject& locatorShape
     )
@@ -27,11 +75,11 @@ namespace
         MStatus status;
         MFnTransform transformFn; // transform node for locator
 
-        locatorTransform = transformFn.create(MObject::kNullObj, &status);
+        locatorTransform = transformFn.create(parentTransform, &status);
         RETURN_IF_MAYA_FAILED(status, "Failed to create locator transform node");
 
         transformFn.setName(transformName, false);
-        transformFn.setTranslation(worldPosition, MSpace::kTransform);
+        transformFn.setTranslation(localPosition, MSpace::kTransform); // local translation with parent
 
         MFnDagNode locatorShapeFn;
         locatorShape = locatorShapeFn.create("locator", locatorTransform);
@@ -40,7 +88,11 @@ namespace
         status = FuncUtils::setLocatorSize(locatorShape, 0.65);
         RETURN_IF_MAYA_FAILED(status, "Cannot set locator size");
 
-        return FuncUtils::setDisplayColor(locatorShape, colorIndex);
+        // Create label
+        FuncUtils::setDisplayColor(locatorShape, colorIndex);
+        createGuideLabel(transformName, label, locatorTransform);
+
+        return MS::kSuccess;
     }
 
     MStatus connectLocatorToCurveCV(
@@ -51,8 +103,8 @@ namespace
     )
     {
         MStatus status;
-        MFnDependencyNode locatorFn(locatorShape, &status);
-        MFnDependencyNode curveFn(curveShape, &status);
+        MFnDependencyNode locatorFn(locatorShape);
+        MFnDependencyNode curveFn(curveShape);
 
         MPlug worldPositionArray = locatorFn.findPlug("worldPosition", true);
         MPlug worldPositionPlug = worldPositionArray.elementByLogicalIndex(0, &status);
@@ -102,6 +154,12 @@ MStatus PreBuildBoneChain::doIt(const MArgList& args)
             MGlobal::displayError("Guide already exists: " + guideName);
             return MS::kFailure;
         }
+
+        if (FuncUtils::objectExists(guideName + "_label"))
+        {
+            MGlobal::displayError("Guide label already exists: " + guideName + "_label");
+            return MS::kFailure;
+        }
     }
 
     if (FuncUtils::objectExists(chain.guideCurveName()))
@@ -115,16 +173,42 @@ MStatus PreBuildBoneChain::doIt(const MArgList& args)
 
     MPointArray curveCVs;
 
-    // Create guide locator and get curve cvs position
-    for (const BoneDefinition& bone : chain.bones)
-    {
-        MObject transform, shape;
+    MObject parentGuideTransform = MObject::kNullObj;
+    MVector preWorldPosition(0.0, 0.0, 0.0);
 
-        status = createGuideLocator(chain.guideName(bone), bone.position, chain.guideColor, transform, shape);
+    // Create guide locator and get curve cvs position
+    for (size_t i = 0; i < chain.bones.size(); i++)
+    {
+        const BoneDefinition& bone = chain.bones[i];
+        MVector localPositon;
+
+        if (i == 0)
+        {
+            localPositon = bone.position;
+        }
+        else
+        {
+            localPositon = bone.position - preWorldPosition;
+        }
+
+        MObject guideTransform, guideShape;
+
+        status = createGuideLocator(
+            chain.guideName(bone),
+            bone.label,
+            localPositon,
+            chain.guideColor,
+            parentGuideTransform,
+            guideTransform,
+            guideShape
+        );
         RETURN_IF_MAYA_FAILED(status, "Cannot create guide locator");
 
-        guideShapes.push_back(shape);
+        guideShapes.push_back(guideShape);
         curveCVs.append(MPoint(bone.position));
+
+        parentGuideTransform = guideTransform;
+        preWorldPosition = bone.position;
     }
 
     MDoubleArray knots;
@@ -143,6 +227,8 @@ MStatus PreBuildBoneChain::doIt(const MArgList& args)
     MObject curveShape = curveFn.create(curveCVs, knots, 1, MFnNurbsCurve::kOpen, false, false, curveTransform, &status);
     RETURN_IF_MAYA_FAILED(status, "Failed to create curve shape");
     curveFn.setName(chain.guideCurveName() + "Shape", false);
+    setNodeUnselectable(curveTransform);
+    setNodeUnselectable(curveShape);
 
     FuncUtils::setDisplayColor(curveShape, chain.guideCurveColor);
 
