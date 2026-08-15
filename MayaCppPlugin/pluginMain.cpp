@@ -2,33 +2,27 @@
 #include <maya/MGlobal.h>
 #include <maya/MObject.h>
 
-#include "BallBoxCommands.h"
-#include "testSample.h"
-//#include "CustomCreateSphere.h"
 #include "CreateJointChain.h"
 #include "PreBuildBoneChain.h"
 #include "CreateFkController.h"
 #include "CreateIkController.h"
+#include "MirrorJointChain.h"
 
-//const MString BallCmd = "ball";
-//const MString BoxCmd = "box";
 
 MStatus initializePlugin(MObject obj)
 {
 	const char* pluginVendor = "Gu Anyi";
-	const char* pluginVersion = "0.1";
+	const char* pluginVersion = "1.0";
 
 	MStatus status;
 	MFnPlugin fnPlugin(obj, pluginVendor, pluginVersion);
 
-	//MStatus status = fnPlugin.registerCommand(BallCmd, CreateBallCommand::creator);
-	//status = fnPlugin.registerCommand(BoxCmd, CreateBoxCommand::creator);
-	status = fnPlugin.registerCommand("testSample", testSample::creator);
 	//status = fnPlugin.registerCommand("CustomSphere", CustomSphere::creator);
 	status = fnPlugin.registerCommand("CreateJointChain", CreateJointChain::creator, CreateJointChain::newSyntax);
 	status = fnPlugin.registerCommand("PreBuildBoneChain", PreBuildBoneChain::creator, PreBuildBoneChain::newSyntax);
 	status = fnPlugin.registerCommand("CreateFkController", CreateFkController::creator, CreateFkController::newSyntax);
 	status = fnPlugin.registerCommand("CreateIkController", CreateIkController::creator, CreateIkController::newSyntax);
+	status = fnPlugin.registerCommand("MirrorJointChain", MirrorJointChain::creator, MirrorJointChain::newSyntax);
 	if (!status)
 	{
 		status.perror("Plugin commands registeration has failed!");
@@ -45,14 +39,13 @@ MStatus uninitializePlugin(MObject obj)
 {
 	MStatus status;
 	MFnPlugin fnPlugin(obj);
-	//MStatus status = fnPlugin.deregisterCommand(BallCmd);
-	//status = fnPlugin.deregisterCommand(BoxCmd);
-	status = fnPlugin.deregisterCommand("testSample");
+
 	//status = fnPlugin.deregisterCommand("CustomSphere");
 	status = fnPlugin.deregisterCommand("CreateJointChain");
 	status = fnPlugin.deregisterCommand("PreBuildBoneChain");
 	status = fnPlugin.deregisterCommand("CreateFkController");
 	status = fnPlugin.deregisterCommand("CreateIkController");
+	status = fnPlugin.deregisterCommand("MirrorJointChain");
 	if (!status)
 	{
 		status.perror("Plugin commands de-registeration has failed!");

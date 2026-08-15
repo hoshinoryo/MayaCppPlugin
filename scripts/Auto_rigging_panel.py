@@ -10,6 +10,7 @@ PLUGIN_NAME = "MayaCppPlugin"
 
 PRE_BUILD_COMMAND_NAME = "PreBuildBoneChain"
 CREATE_JOINT_COMMAND_NAME = "CreateJointChain"
+MIRROR_JOINT_COMMAND_NAME = "MirrorJointChain"
 CREATE_FK_COMMAND_NAME = "CreateFkController"
 CREATE_IK_COMMAND_NAME = "CreateIkController"
 
@@ -255,15 +256,26 @@ class RigBuildController(QtCore.QObject):
         if not self.fk_enabled() and not self.ik_enabled():
             raise RuntimeError("Select at least one rig type: FK or IK.")
 
+        source_side = self.current_side()
         build_sides = self.build_sides()
 
-        # Create all selected joint chains first.
-        for side in build_sides:
-            if self.fk_enabled():
-                self.execute_plugin_command(CREATE_JOINT_COMMAND_NAME, side=side, chainType="fk")
+        # Only current side joints creation
+        if self.fk_enabled():
+            self.execute_plugin_command(CREATE_JOINT_COMMAND_NAME, side = source_side, chainType="fk")
 
+        if self.ik_enabled():
+            self.execute_plugin_command(CREATE_JOINT_COMMAND_NAME, side = source_side, chainType="ik")
+
+        # If mirror is checked
+        if self.mirror_enabled():
+            target_side = self.opposite_side(source_side)
+
+            if self.fk_enabled():
+                self.execute_plugin_command(MIRROR_JOINT_COMMAND_NAME, side = source_side, chainType="fk")
             if self.ik_enabled():
-                self.execute_plugin_command(CREATE_JOINT_COMMAND_NAME, side=side, chainType="ik")
+                self.execute_plugin_command(MIRROR_JOINT_COMMAND_NAME, side = source_side, chainType="ik")
+
+            build_sides = (source_side, target_side)
 
         # Create controllers after all joint chains exist.
         for side in build_sides:

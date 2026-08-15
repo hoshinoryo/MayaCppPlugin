@@ -151,7 +151,6 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="BallBoxCommands.cpp" />
     <ClCompile Include="ControllerShapeUtils.cpp" />
     <ClCompile Include="CreateIkController.cpp" />
     <ClCompile Include="CreateJointChain.cpp" />
@@ -159,13 +158,12 @@
     <ClCompile Include="CustomCreateSphere.cpp" />
     <ClCompile Include="FuncUtils.cpp" />
     <ClCompile Include="FuncUtils.h" />
+    <ClCompile Include="MirrorJointChain.cpp" />
     <ClCompile Include="pluginMain.cpp" />
     <ClCompile Include="PreBuildBoneChain.cpp" />
     <ClCompile Include="RigModuleRegistry.cpp" />
-    <ClCompile Include="testSample.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="BallBoxCommands.h" />
     <ClInclude Include="BoneChainDefinition.h" />
     <ClInclude Include="ChainCommandUtils.h" />
     <ClInclude Include="ControllerShapeUtils.h" />
@@ -173,10 +171,10 @@
     <ClInclude Include="CreateJointChain.h" />
     <ClInclude Include="CreateFkController.h" />
     <ClInclude Include="CustomCreateSphere.h" />
+    <ClInclude Include="MirrorJointChain.h" />
     <ClInclude Include="PreBuildBoneChain.h" />
     <ClInclude Include="RigModuleRegistry.h" />
     <ClInclude Include="StatusUtils.h" />
-    <ClInclude Include="testSample.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

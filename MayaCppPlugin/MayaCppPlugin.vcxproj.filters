@@ -21,12 +21,6 @@
     <ClCompile Include="pluginMain.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
-    <ClCompile Include="BallBoxCommands.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
-    <ClCompile Include="testSample.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
     <ClCompile Include="CustomCreateSphere.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
@@ -54,14 +48,11 @@
     <ClCompile Include="ControllerShapeUtils.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
+    <ClCompile Include="MirrorJointChain.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="BallBoxCommands.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
-    <ClInclude Include="testSample.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
     <ClInclude Include="CustomCreateSphere.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
@@ -91,6 +82,9 @@
     </ClInclude>
     <ClInclude Include="ControllerShapeUtils.h">
       <Filter>ヘッダー ファイル\Utility</Filter>
+    </ClInclude>
+    <ClInclude Include="MirrorJointChain.h">
+      <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
