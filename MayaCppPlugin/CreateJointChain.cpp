@@ -49,9 +49,9 @@ MStatus CreateJointChain::doIt(const MArgList& args)
     status = ChainCommandUtils::parseDefinition(syntax(), args, chain);
     RETURN_IF_MAYA_FAILED(status, "Cannot read chain definition");
 
-    if (chain.module != "arm" && chain.module != "leg")
+    if (chain.module != "arm" && chain.module != "leg" && chain.module != "spine")
     {
-        MGlobal::displayError("FK and IK joint chains currently support only arm and leg module");
+        MGlobal::displayError("Joint chains currently unsupported");
         return MS::kInvalidParameter;
     }
 
@@ -71,6 +71,12 @@ MStatus CreateJointChain::doIt(const MArgList& args)
     if (chainType != "fk" && chainType != "ik")
     {
         MGlobal::displayError("chainType must be fk or ik");
+        return MS::kInvalidParameter;
+    }
+
+    if (chain.module == "spine" && chainType == "ik")
+    {
+        MGlobal::displayError("Spine module currently supports FK");
         return MS::kInvalidParameter;
     }
 

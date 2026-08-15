@@ -100,7 +100,7 @@ class RigBuildController(QtCore.QObject):
 
         side_combo_box.blockSignals(False)
 
-        can_mirror = "L" in allowed_sides and "R" in allowed_sides
+        can_mirror = (module_name in ("arm", "leg") and "L" in allowed_sides and "R" in allowed_sides)
         self.view.mirror_check_box.setEnabled(can_mirror)
 
         if can_mirror:
@@ -116,7 +116,7 @@ class RigBuildController(QtCore.QObject):
         if ik_available:
             self.view.ik_check_box.setToolTip("Build the IK joint chain and IK controllers.")
         else:
-            self.view.ik_check_box.setToolTip("IK is currently available only for the arm module.")
+            self.view.ik_check_box.setToolTip("IK is currently available only for arm and leg modules.")
 
     # ------------------------------------------------------------------
     # Guide name helpers
