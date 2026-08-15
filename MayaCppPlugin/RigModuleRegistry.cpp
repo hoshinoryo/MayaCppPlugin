@@ -29,17 +29,17 @@ namespace
             {
                 "shoulder",
                 MVector(0.0, 10.0, 0.0),
-                1.4
+                1.6
             },
             {
                 "elbow",
                 MVector(5.0 * direction, 10.0, -0.5),
-                1.2
+                1.4
             },
             {
                 "wrist",
                 MVector(9.0 * direction, 10.0, 0.0),
-                1.0
+                1.2
             }
         };
 

@@ -152,6 +152,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="BallBoxCommands.cpp" />
+    <ClCompile Include="ControllerShapeUtils.cpp" />
     <ClCompile Include="CreateIkController.cpp" />
     <ClCompile Include="CreateJointChain.cpp" />
     <ClCompile Include="CreateFkController.cpp" />
@@ -167,6 +168,7 @@
     <ClInclude Include="BallBoxCommands.h" />
     <ClInclude Include="BoneChainDefinition.h" />
     <ClInclude Include="ChainCommandUtils.h" />
+    <ClInclude Include="ControllerShapeUtils.h" />
     <ClInclude Include="CreateIkController.h" />
     <ClInclude Include="CreateJointChain.h" />
     <ClInclude Include="CreateFkController.h" />

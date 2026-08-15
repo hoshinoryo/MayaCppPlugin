@@ -2,6 +2,7 @@
 #include "ChainCommandUtils.h"
 #include "FuncUtils.h"
 #include "StatusUtils.h"
+#include "ControllerShapeUtils.h"
 
 #include <maya/MDagPath.h>
 
@@ -16,31 +17,37 @@ namespace
         return chain.prefix() + "_ik_ctrl";
     }
 
+    /*
     MString ikControllerGroupName(const BoneChainDefinition& chain)
     {
         return chain.prefix() + "_ik_ctrl_grp";
     }
+    */
 
     MString poleVectorControllerName(const BoneChainDefinition& chain)
     {
         return chain.prefix() + "_ik_pole_ctrl";
     }
 
+    /*
     MString poleVectorControllerGroupName(const BoneChainDefinition& chain)
     {
         return chain.prefix() + "_ik_pole_ctrl_grp";
     }
+    */
 
     MString ikHandleName(const BoneChainDefinition chain)
     {
         return chain.prefix() + "_ikHandle";
     }
     
+    /*
     MString ikHandleGroupName(const BoneChainDefinition chain)
     {
         return chain.prefix() + "_ikHandle_grp";
     }
 
+    
     MStatus createIkController(
         const MString& controllerName,
         const MString& groupName,
@@ -66,6 +73,7 @@ namespace
 
         return FuncUtils::setDisplayColor(shapePath.node(), colorIndex);
     }
+    */
 
     MStatus calculatePoleVectorPosition(
         const MString& shoulderJnt,
@@ -157,15 +165,16 @@ MStatus CreateIkController::doIt(const MArgList& args)
         return MS::kFailure;
     }
 
+    // temp
     const MString shoulderJoint = m_Chain.jointName(m_Chain.bones[0], "ik");
     const MString elbowJoint = m_Chain.jointName(m_Chain.bones[1], "ik");
     const MString wristJoint = m_Chain.jointName(m_Chain.bones[2], "ik");
 
     const MString handleName = ikHandleName(m_Chain);
     const MString controllerName = ikControllerName(m_Chain);
-    const MString controllerGroupName = ikControllerGroupName(m_Chain);
+    const MString controllerGroupName = ControllerShapeUtils::controllerGroupName(controllerName);
     const MString poleControllerName = poleVectorControllerName(m_Chain);
-    const MString poleGroupName = poleVectorControllerGroupName(m_Chain);
+    const MString poleGroupName = ControllerShapeUtils::controllerGroupName(poleControllerName);
 
     if (!FuncUtils::objectExists(shoulderJoint))
     {
@@ -217,23 +226,41 @@ MStatus CreateIkController::redoIt()
     const MString wristJoint = m_Chain.jointName(m_Chain.bones[2], "ik");
 
     const MString handleName = ikHandleName(m_Chain);
-    const MString handleGroupName = ikHandleGroupName(m_Chain);
+    const MString handleGroupName = ControllerShapeUtils::controllerGroupName(handleName);
     const MString controllerName = ikControllerName(m_Chain);
-    const MString controllerGroupName = ikControllerGroupName(m_Chain);
+    const MString controllerGroupName = ControllerShapeUtils::controllerGroupName(controllerName);
     const MString poleControllerName = poleVectorControllerName(m_Chain);
-    const MString poleGroupName = poleVectorControllerGroupName(m_Chain);
+    const MString poleGroupName = ControllerShapeUtils::controllerGroupName(poleControllerName);
 
-    // Create Ik
+    // Create ik handle
     status = createIkHandle(handleName, handleGroupName, shoulderJoint, wristJoint);
     RETURN_IF_MAYA_FAILED(status, "Unable to create IK handle");
 
-    status = createIkController(controllerName, controllerGroupName, 1.4, m_Chain.controllerColor);
+
+    // Create ik control
+    MObject ikControllerTransform;
+
+    status = ControllerShapeUtils::createController(
+        controllerName, ControllerShapeUtils::ShapeType::Box, 1.4, ikControllerTransform);
     RETURN_IF_MAYA_FAILED(status, "Unable to create IK controller");
 
     FuncUtils::matchWorldPositionAndRotation(controllerGroupName, wristJoint);
 
-    status = createIkController(poleControllerName, poleGroupName, 1.3, m_Chain.controllerColor);
+    MDagPath shapePath;
+    FuncUtils::getShapeFromTransform(controllerName, shapePath);
+    FuncUtils::setDisplayColor(shapePath.node(), m_Chain.controllerColor); // set color
+
+
+    // Create pole vector control
+    MObject poleControllerTransform;
+
+    status = ControllerShapeUtils::createController(
+        poleControllerName, ControllerShapeUtils::ShapeType::Pyramid, 1.0, poleControllerTransform);
     RETURN_IF_MAYA_FAILED(status, "Unable to create pole vector controller");
+
+    MDagPath poleShapePath;
+    FuncUtils::getShapeFromTransform(controllerName, poleShapePath);
+    FuncUtils::setDisplayColor(poleShapePath.node(), m_Chain.controllerColor); // set color
 
     MVector poleVectorPosition;
     status = calculatePoleVectorPosition(shoulderJoint, elbowJoint, wristJoint, poleVectorPosition);
@@ -241,12 +268,13 @@ MStatus CreateIkController::redoIt()
 
     FuncUtils::setWorldPosition(poleGroupName, poleVectorPosition);
 
+    // Parent ikhandle to ik controller
     MString command;
     command.format("parent -absolute \"^1s\" \"^2s\"", handleGroupName, controllerName);
     FuncUtils::executeMayaCommand(command, "Cannot parent IK handle to controller");
 
-    // Orient constraint 
-    command.format("orientConstraint -maintainOffset false -name \"^1s\" \"^2s\" \"^3s\"",
+    // Orient constraint (ik controller to wrist)
+    command.format("orientConstraint -maintainOffset -name \"^1s\" \"^2s\" \"^3s\"",
         wristJoint + "_ik_orientConstraint",
         controllerName,
         wristJoint);
