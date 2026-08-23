@@ -18,7 +18,7 @@ namespace
 
         chain.module = "arm";
         chain.side = side;
-        chain.guideColor = 17;
+        chain.guideColor = 14;
         chain.guideCurveColor = 18;
         chain.controllerColor = side == "R" ? 13 : 6;
         
@@ -28,17 +28,17 @@ namespace
         {
             {
                 "shoulder",
-                MVector(0.0, 10.0, 0.0),
+                MVector(3.0, 18.0, 0.0),
                 1.6
             },
             {
                 "elbow",
-                MVector(5.0 * direction, 10.0, -0.5),
+                MVector(8.0 * direction, 18.0, -0.5),
                 1.4
             },
             {
                 "wrist",
-                MVector(9.0 * direction, 10.0, 0.0),
+                MVector(12.0 * direction, 18.0, 0.0),
                 1.2
             }
         };
@@ -52,7 +52,7 @@ namespace
 
         chain.module = "leg";
         chain.side = side;
-        chain.guideColor = 17;
+        chain.guideColor = 14;
         chain.guideCurveColor = 18;
         chain.controllerColor = side == "R" ? 13 : 6;
 
@@ -96,16 +96,35 @@ namespace
 
         chain.module = "spine";
         chain.side = "M";
-        chain.guideColor = 17;
+        chain.guideColor = 14;
         chain.guideCurveColor = 18;
         chain.controllerColor = 17;
 
         chain.bones =
         {
-            {"pelvis",   MVector(0.0, 9.0, 0.0),  1.8},
-            {"spine_01", MVector(0.0, 11.0, 0.0), 1.6},
-            {"spine_02", MVector(0.0, 13.0, 0.0), 1.5},
-            {"chest",    MVector(0.0, 15.0, 0.0), 1.8}
+            {"pelvis",   MVector(0.0, 10.0, 0.0), 2.5},
+            {"spine_01", MVector(0.0, 13.0, 0.4), 1.9},
+            {"spine_02", MVector(0.0, 15.0, 0.4), 1.5},
+            {"chest",    MVector(0.0, 18.0, 0.0), 1.8}
+        };
+
+        return chain;
+    }
+
+    BoneChainDefinition createHeadDefinition()
+    {
+        BoneChainDefinition chain;
+
+        chain.module = "head";
+        chain.side = "M";
+        chain.guideColor = 14;
+        chain.guideCurveColor = 18;
+        chain.controllerColor = 17;
+
+        chain.bones =
+        {
+            {"neck",   MVector(0.0, 19.0, 0.0), 1.5},
+            {"head",   MVector(0.0, 22.0, 0.0), 1.8}
         };
 
         return chain;
@@ -132,6 +151,11 @@ MStatus RigModuleRegistry::getChain(
     if (module == "spine")
     {
         result = createSpineDefinition();
+        return MS::kSuccess;
+    }
+    if (module == "head")
+    {
+        result = createHeadDefinition();
         return MS::kSuccess;
     }
 
