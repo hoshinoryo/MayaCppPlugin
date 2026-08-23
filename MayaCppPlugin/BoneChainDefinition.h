@@ -11,21 +11,19 @@
 #include <maya/MVector.h>
 #include <vector>
 
-struct BoneDefinition
+struct BoneBase
 {
-	MString label; // shoulder/elbow...
+	MString label;
 	MVector position;
-	double constrollerRadius = 1.0;
+	double controllerRadius = 1.0;
 };
 
-struct BoneChainDefinition
+struct BoneStructureBase
 {
 	MString module; // arm/leg/spine...
 	MString side;   // L/R/M
 
-	std::vector<BoneDefinition> bones;
-
-	short guideColor = 17;
+	short guideColor = 14;
 	short guideCurveColor = 18;
 	short controllerColor = 6;
 
@@ -39,7 +37,7 @@ struct BoneChainDefinition
 		return side + "_" + module;
 	}
 
-	MString guideName(const BoneDefinition& bone) const
+	MString guideName(const BoneBase& bone) const
 	{
 		return prefix() + "_" + bone.label + "_guide";
 	}
@@ -49,8 +47,42 @@ struct BoneChainDefinition
 		return prefix() + "_guide_curve";
 	}
 
-	MString jointName(const BoneDefinition& bone, const MString& chainType) const
+	MString jointName(const BoneBase& bone, const MString& chainType) const
 	{
 		return prefix() + "_" + bone.label + "_" + chainType + "_jnt";
+	}
+};
+
+// Arm/leg/spine/head
+struct SingleChainDefinition : BoneStructureBase
+{
+	MString chainLabel;
+
+	std::vector<BoneBase> bones;
+
+	// Parent bone setting
+	MString parentGuide;
+	MString parentJoint;
+};
+
+// Hand/wings
+struct TreeBoneDefinition : BoneStructureBase
+{
+	BoneBase root;
+
+	std::vector<SingleChainDefinition> children;
+
+	// Parent bone setting
+	MString parentModule;
+	MString parentBone;
+
+	MString rootJointName(const MString& chainType) const
+	{
+		return jointName(root, chainType);
+	}
+
+	MString rootGuideName() const
+	{
+		return guideName(root);
 	}
 };

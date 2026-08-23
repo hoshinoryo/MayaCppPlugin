@@ -17,6 +17,7 @@ CREATE_IK_COMMAND_NAME = "CreateIkController"
 
 MODULE_ORDER = (
     "arm",
+    "hand",
     "leg",
     "spine",
     "head",
@@ -24,6 +25,7 @@ MODULE_ORDER = (
 
 MODULE_SIDES = {
     "arm": ("L", "R"),
+    "hand": ("L", "R"),
     "leg": ("L", "R"),
     "spine": ("M",),
     "head": ("M",),
@@ -50,6 +52,13 @@ FULL_BODY_MODULES = (
         "side": "L",
         "fk": True,
         "ik": True,
+        "mirror": True,
+    },
+{
+        "module": "hand",
+        "side": "L",
+        "fk": True,
+        "ik": False,
         "mirror": True,
     },
     {
@@ -82,25 +91,15 @@ class RigBuildController(QtCore.QObject):
     # ------------------------------------------------------------------
 
     def create_connections(self):
-        self.view.module_combo_box.currentTextChanged.connect(
-            self.update_module_options
-        )
+        self.view.module_combo_box.currentTextChanged.connect(self.update_module_options)
 
-        self.view.create_full_body_guides_button.clicked.connect(
-            self.create_full_body_guides
-        )
+        self.view.create_full_body_guides_button.clicked.connect(self.create_full_body_guides)
 
-        self.view.build_full_body_button.clicked.connect(
-            self.build_full_body
-        )
+        self.view.build_full_body_button.clicked.connect(self.build_full_body)
 
-        self.view.create_module_guides_button.clicked.connect(
-            self.create_module_guides
-        )
+        self.view.create_module_guides_button.clicked.connect(self.create_module_guides)
 
-        self.view.build_module_button.clicked.connect(
-            self.build_module
-        )
+        self.view.build_module_button.clicked.connect(self.build_module)
 
     # ------------------------------------------------------------------
     # Current module options
@@ -202,10 +201,7 @@ class RigBuildController(QtCore.QObject):
 
     @QtCore.Slot()
     def build_full_body(self):
-        self.run_build_action(
-            self._build_full_body,
-            "Build Full Body Failed"
-        )
+        self.run_build_action(self._build_full_body,"Build Full Body Failed")
 
     def _create_full_body_guides(self):
         for definition in FULL_BODY_MODULES:
@@ -216,7 +212,6 @@ class RigBuildController(QtCore.QObject):
             )
 
     def _build_full_body(self):
-        # 第一阶段：创建所有源侧 Joint Chains。
         for definition in FULL_BODY_MODULES:
             self.create_source_joint_chains(
                 module=definition["module"],
@@ -225,19 +220,15 @@ class RigBuildController(QtCore.QObject):
                 build_ik=definition["ik"]
             )
 
-        # 第二阶段：镜像 arm 和 leg 的 Joint Chains。
-        for definition in FULL_BODY_MODULES:
-            if not definition["mirror"]:
-                continue
+        # for definition in FULL_BODY_MODULES:
+            if definition["mirror"]:
+                self.mirror_joint_chains(
+                    module=definition["module"],
+                    source_side=definition["side"],
+                    mirror_fk=definition["fk"],
+                    mirror_ik=definition["ik"]
+                )
 
-            self.mirror_joint_chains(
-                module=definition["module"],
-                source_side=definition["side"],
-                mirror_fk=definition["fk"],
-                mirror_ik=definition["ik"]
-            )
-
-        # 第三阶段：所有骨骼存在后创建控制器。
         for definition in FULL_BODY_MODULES:
             controller_sides = (definition["side"],)
 
@@ -448,7 +439,8 @@ class RigBuildController(QtCore.QObject):
         self.view.show(
             dockable=True,
             area="right",
-            floating=True
+            floating=True,
+            retain=False
         )
 
     def close(self):
@@ -468,13 +460,32 @@ def show_panel():
     ):
         cmds.deleteUI(workspace_control)
 
-    if _panel_controller is not None:
-        try:
-            _panel_controller.close()
-        except RuntimeError:
-            pass
+    if cmds.workspaceControlState(
+        workspace_control,
+        query=True,
+        exists=True
+    ):
+        cmds.workspaceControlState(
+            workspace_control,
+            remove=True
+        )
 
+    _panel_controller = None
     _panel_controller = RigBuildController()
     _panel_controller.show()
+
+    if cmds.workspaceControl(
+        workspace_control,
+        query=True,
+        exists=True
+    ):
+        cmds.workspaceControl(
+            workspace_control,
+            edit=True,
+            initialWidth=450,
+            initialHeight=500,
+            resizeWidth=450,
+            resizeHeight=500
+        )
 
     return _panel_controller

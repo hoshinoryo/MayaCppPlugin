@@ -13,6 +13,7 @@
 #include <maya/MPointArray.h>
 #include <maya/MFnNurbsCurve.h>
 #include <maya/MDagModifier.h>
+#include <maya/MDagPath.h>
 
 
 namespace
@@ -116,6 +117,130 @@ namespace
 
         return dgModifier.connect(worldPositionPlug, controlPointPlug);
     }
+
+
+    MStatus createSingleChainGuides(const SingleChainDefinition& chain,
+        const MObject& initialParentTransform = MObject::kNullObj,
+        const MVector& initialParentPosition = MVector::zero
+    )
+    {
+        MStatus status;
+
+        std::vector<MObject> guideShapes; // guide locator shapes
+        guideShapes.reserve(chain.bones.size()); // reserve memory
+
+        MPointArray curveCVs;
+
+        MObject parentGuideTransform = initialParentTransform;
+        MVector preWorldPosition = initialParentPosition;
+
+        // Create guide locator and get curve cvs position
+        for (size_t i = 0; i < chain.bones.size(); i++)
+        {
+            const BoneBase& bone = chain.bones[i];
+            MVector localPositon;
+
+            if (i == 0 && chain.module != "hand")
+            {
+                localPositon = bone.position;
+            }
+            else
+            {
+                localPositon = bone.position - preWorldPosition;
+            }
+
+            MObject guideTransform, guideShape;
+
+            status = createGuideLocator(
+                chain.guideName(bone),
+                bone.label,
+                localPositon,
+                chain.guideColor,
+                parentGuideTransform,
+                guideTransform,
+                guideShape
+            );
+            RETURN_IF_MAYA_FAILED(status, "Cannot create guide locator");
+
+            guideShapes.push_back(guideShape);
+            curveCVs.append(MPoint(bone.position));
+
+            parentGuideTransform = guideTransform;
+            preWorldPosition = bone.position;
+        }
+
+        MDoubleArray knots;
+
+        for (unsigned int i = 0; i < chain.bones.size(); i++)
+        {
+            knots.append(static_cast<double>(i));
+        }
+
+        MFnTransform curveTransformFn;
+        MObject curveTransform = curveTransformFn.create(MObject::kNullObj, &status); // create curve transform node
+        RETURN_IF_MAYA_FAILED(status, "Failed to create curve transform");
+        curveTransformFn.setName(chain.guideCurveName(), false);
+
+        MFnNurbsCurve curveFn;
+        MObject curveShape = curveFn.create(curveCVs, knots, 1, MFnNurbsCurve::kOpen, false, false, curveTransform, &status);
+        RETURN_IF_MAYA_FAILED(status, "Failed to create curve shape");
+        curveFn.setName(chain.guideCurveName() + "Shape", false);
+        setNodeUnselectable(curveTransform);
+        setNodeUnselectable(curveShape);
+
+        FuncUtils::setDisplayColor(curveShape, chain.guideCurveColor);
+
+        // connect dependency graph
+        MDGModifier dgModifier;
+        for (unsigned int i = 0; i < guideShapes.size(); i++)
+        {
+            status = connectLocatorToCurveCV(guideShapes[i], curveShape, i, dgModifier);
+        }
+
+        status = dgModifier.doIt();
+        RETURN_IF_MAYA_FAILED(status, "Failed to apply guide connections");
+
+        return MS::kSuccess;
+    }
+
+    MStatus createTreeGuides(const TreeBoneDefinition& tree)
+    {
+        MStatus status;
+
+        const MString parentPrefix = tree.side.length() == 0 || tree.side == "M"
+            ? "M_" + tree.parentModule
+            : tree.side + "_" + tree.parentModule;
+        const MString parentGuideName = parentPrefix + "_" + tree.parentBone + "_guide";
+
+        MDagPath parentGuidePath;
+        FuncUtils::getDagPath(parentGuideName, parentGuidePath);
+
+        MVector parentWorldPosition;
+        FuncUtils::getWorldPosition(parentGuideName, parentWorldPosition);
+
+        MObject rootGuideTransform, rootGuideShape;
+        const MVector rootLocalPosition = tree.root.position - parentWorldPosition;
+        status = createGuideLocator(
+            tree.rootGuideName(),
+            tree.root.label,
+            rootLocalPosition,
+            tree.guideColor,
+            parentGuidePath.node(),
+            rootGuideTransform,
+            rootGuideShape
+        );
+        RETURN_IF_MAYA_FAILED(status, "Cannot create tree root guide");
+
+        for (const SingleChainDefinition& child : tree.children)
+        {
+            status = createSingleChainGuides(child, rootGuideTransform, tree.root.position);
+            RETURN_IF_MAYA_FAILED(status, "Cannot craete child guide chain");
+        }
+
+        MGlobal::displayInfo(tree.prefix() + " tree guide created successfully");
+
+        return MS::kSuccess;
+    }
 }
 
 
@@ -133,7 +258,21 @@ MSyntax PreBuildBoneChain::newSyntax()
 MStatus PreBuildBoneChain::doIt(const MArgList& args)
 {
     MStatus status;
-    BoneChainDefinition chain;
+    MString module, side;
+
+    status = ChainCommandUtils::parseModuleAndSide(syntax(), args, module, side);
+    RETURN_IF_MAYA_FAILED(status, "Unable to read module and side");
+
+    if (module == "hand")
+    {
+        TreeBoneDefinition tree;
+
+        status = ChainCommandUtils::parseDefinition(syntax(), args, tree);
+
+        return createTreeGuides(tree);
+    }
+
+    SingleChainDefinition chain;
 
     status = ChainCommandUtils::parseDefinition(syntax(), args, chain);
     RETURN_IF_MAYA_FAILED(status, "Unable to read chain definition");
@@ -145,7 +284,7 @@ MStatus PreBuildBoneChain::doIt(const MArgList& args)
         return MS::kFailure;
     }
 
-    for (const BoneDefinition& bone : chain.bones)
+    for (const BoneBase& bone : chain.bones)
     {
         const MString guideName = chain.guideName(bone);
 
@@ -168,81 +307,9 @@ MStatus PreBuildBoneChain::doIt(const MArgList& args)
         return MS::kFailure;
     }
 
-    std::vector<MObject> guideShapes; // guide locator shapes
-    guideShapes.reserve(chain.bones.size()); // reserve memory
+    status = createSingleChainGuides(chain);
 
-    MPointArray curveCVs;
-
-    MObject parentGuideTransform = MObject::kNullObj;
-    MVector preWorldPosition(0.0, 0.0, 0.0);
-
-    // Create guide locator and get curve cvs position
-    for (size_t i = 0; i < chain.bones.size(); i++)
-    {
-        const BoneDefinition& bone = chain.bones[i];
-        MVector localPositon;
-
-        if (i == 0)
-        {
-            localPositon = bone.position;
-        }
-        else
-        {
-            localPositon = bone.position - preWorldPosition;
-        }
-
-        MObject guideTransform, guideShape;
-
-        status = createGuideLocator(
-            chain.guideName(bone),
-            bone.label,
-            localPositon,
-            chain.guideColor,
-            parentGuideTransform,
-            guideTransform,
-            guideShape
-        );
-        RETURN_IF_MAYA_FAILED(status, "Cannot create guide locator");
-
-        guideShapes.push_back(guideShape);
-        curveCVs.append(MPoint(bone.position));
-
-        parentGuideTransform = guideTransform;
-        preWorldPosition = bone.position;
-    }
-
-    MDoubleArray knots;
-
-    for (unsigned int i = 0; i < chain.bones.size(); i++)
-    {
-        knots.append(static_cast<double>(i));
-    }
-
-    MFnTransform curveTransformFn;
-    MObject curveTransform = curveTransformFn.create(MObject::kNullObj, &status); // create curve transform node
-    RETURN_IF_MAYA_FAILED(status, "Failed to create curve transform");
-    curveTransformFn.setName(chain.guideCurveName(), false);
-
-    MFnNurbsCurve curveFn;
-    MObject curveShape = curveFn.create(curveCVs, knots, 1, MFnNurbsCurve::kOpen, false, false, curveTransform, &status);
-    RETURN_IF_MAYA_FAILED(status, "Failed to create curve shape");
-    curveFn.setName(chain.guideCurveName() + "Shape", false);
-    setNodeUnselectable(curveTransform);
-    setNodeUnselectable(curveShape);
-
-    FuncUtils::setDisplayColor(curveShape, chain.guideCurveColor);
-
-    // connect dependency graph
-    MDGModifier dgModifier;
-    for (unsigned int i = 0; i < guideShapes.size(); i++)
-    {
-        status = connectLocatorToCurveCV(guideShapes[i], curveShape, i, dgModifier);
-    }
-    
-    status = dgModifier.doIt();
-    RETURN_IF_MAYA_FAILED(status, "Failed to apply guide connections");
-
-    MGlobal::displayInfo("Shoulder, elbow and hand guides created successful.");
+    MGlobal::displayInfo(chain.prefix() + " guides created successful.");
 
     return MS::kSuccess;
 }

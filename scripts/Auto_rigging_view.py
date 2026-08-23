@@ -13,6 +13,7 @@ class RigBuildView(MayaQWidgetDockableMixin, QtWidgets.QWidget):
         self.setObjectName(self.OBJECT_NAME)
         self.setWindowTitle(self.WINDOW_TITLE)
         self.setMinimumWidth(360)
+        self.resize(450, 500)
 
         self.create_widgets(module_names)
         self.create_layout()
@@ -36,12 +37,8 @@ class RigBuildView(MayaQWidgetDockableMixin, QtWidgets.QWidget):
             "build bones and controllers"
         )
 
-        self.configure_large_button(
-            self.create_full_body_guides_button
-        )
-        self.configure_large_button(
-            self.build_full_body_button
-        )
+        self.configure_large_button(self.create_full_body_guides_button)
+        self.configure_large_button(self.build_full_body_button)
 
         self.full_body_description = QtWidgets.QLabel(
             "Creates Spine, Head, Left Arm and Left Leg guides.\n"
@@ -87,7 +84,7 @@ class RigBuildView(MayaQWidgetDockableMixin, QtWidgets.QWidget):
         button.setMinimumHeight(64)
 
         font = button.font()
-        font.setPointSize(14)
+        font.setPointSize(12) # font size
         font.setBold(True)
         button.setFont(font)
 

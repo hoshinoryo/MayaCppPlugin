@@ -24,16 +24,22 @@ namespace ChainCommandUtils
 		return syntax;
 	}
 
+
 	// Get parameters
-	inline MStatus parseDefinition(const MSyntax& syntax, const MArgList& args, BoneChainDefinition& definition)
+	inline MStatus parseModuleAndSide(
+		const MSyntax& syntax,
+		const MArgList& args,
+		MString& module,
+		MString& side
+	)
 	{
 		MStatus status;
 
 		MArgDatabase database(syntax, args, &status);
 		if (!status) return status;
 
-		MString module = "arm";
-		MString side = "L";
+		module = "arm";
+		side = "L";
 
 		if (database.isFlagSet("-module"))
 		{
@@ -44,12 +50,46 @@ namespace ChainCommandUtils
 			database.getFlagArgument("-side", 0, side);
 		}
 
+		module.toLowerCase();
+		side.toUpperCase();
+
 		if (side != "L" && side != "R" && side != "M")
 		{
 			MGlobal::displayError("Side must be L, R or M");
 			return MS::kInvalidParameter;
 		}
 
+		return MS::kSuccess;
+	}
+
+
+	inline MStatus parseDefinition(
+		const MSyntax& syntax,
+		const MArgList& args,
+		SingleChainDefinition& definition
+	)
+	{
+		MString module;
+		MString side;
+
+		MStatus status = parseModuleAndSide(syntax, args, module, side);
+		if (!status) return status;
+
 		return RigModuleRegistry::getChain(module, side, definition);
+	}
+
+	inline MStatus parseDefinition(
+		const MSyntax& syntax,
+		const MArgList& args,
+		TreeBoneDefinition& definition
+	)
+	{
+		MString module;
+		MString side;
+
+		MStatus status = parseModuleAndSide(syntax, args, module, side);
+		if (!status) return status;
+
+		return RigModuleRegistry::getTree(module, side, definition);
 	}
 }

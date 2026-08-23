@@ -10,9 +10,199 @@
 
 namespace
 {
-    MString fkControllerName(const BoneChainDefinition& chain, const BoneDefinition& bone)
+    MString fkControllerName(const BoneStructureBase& chain, const BoneBase& bone)
     {
         return chain.prefix() + "_" + bone.label + "_fk_ctrl";
+    }
+
+    MString parentFkControllerName(const TreeBoneDefinition& tree)
+    {
+        const MString prefix = tree.side.length() == 0 || tree.side == "M"
+            ? "M_" + tree.parentModule
+            : tree.side + "_" + tree.parentModule;
+
+        return prefix + "_" + tree.parentBone + "_fk_ctrl";
+    }
+
+    // -------------------------------------------------------------------------------------
+    // 
+    // Validation
+    // 
+    // -------------------------------------------------------------------------------------
+    MStatus validateJointController(const BoneStructureBase& chain, const BoneBase& bone)
+    {
+        const MString jointName = chain.jointName(bone, "fk");
+        const MString controllerName = fkControllerName(chain, bone);
+        const MString groupName = ControllerShapeUtils::controllerGroupName(controllerName);
+
+        if (!FuncUtils::objectExists(jointName))
+        {
+            MGlobal::displayError("Missing Fk joint: " + jointName);
+            return MS::kFailure;
+        }
+        if (FuncUtils::objectExists(controllerName) || FuncUtils::objectExists(groupName))
+        {
+            MGlobal::displayError("Controller already exists " + controllerName);
+            return MS::kFailure;
+        }
+
+        return MS::kSuccess;
+    }
+
+    MStatus validateSingleChain(const SingleChainDefinition& chain)
+    {
+        if (chain.bones.empty())
+        {
+            MGlobal::displayError("FK chain contains no bones");
+            return MS::kFailure;
+        }
+
+        for (const BoneBase& bone : chain.bones)
+        {
+            validateJointController(chain, bone);
+        }
+
+        return MS::kSuccess;
+    }
+
+    MStatus validateTreeChain(const TreeBoneDefinition& tree)
+    {
+        if (tree.children.empty())
+        {
+            MGlobal::displayError("Tree chain contains no child chains");
+            return MS::kFailure;
+        }
+
+        const MString palmJoint = tree.rootJointName("fk");
+
+        if (!FuncUtils::objectExists(palmJoint))
+        {
+            MGlobal::displayError("Missing parent joint: " + palmJoint);
+            return MS::kFailure;
+        }
+
+        const MString parentController = parentFkControllerName(tree);
+        if (!FuncUtils::objectExists(parentController))
+        {
+            MGlobal::displayError("Parent controller does not exist: " + parentController);
+            return MS::kFailure;
+        }
+
+        for (const SingleChainDefinition& child : tree.children)
+        {
+            MStatus status = validateSingleChain(child);
+            RETURN_IF_MAYA_FAILED(status, "Cannot validate finger Fk chain");
+        }
+
+        return MS::kSuccess;
+    }
+    // -------------------------------------------------------------------------------------
+
+
+
+    // -------------------------------------------------------------------------------------
+    MStatus createFkControllers(const BoneStructureBase& chain, const BoneBase& bone,
+        ControllerShapeUtils::ShapeType shapeType)
+    {
+        MStatus status;
+
+        const MString jointName = chain.jointName(bone, "fk");
+        const MString controllerName = fkControllerName(chain, bone);
+        const MString groupName = ControllerShapeUtils::controllerGroupName(controllerName);
+
+        MObject controllerTransform;
+
+        status = ControllerShapeUtils::createController(
+            controllerName,
+            shapeType,
+            bone.controllerRadius,
+            controllerTransform
+        );
+        RETURN_IF_MAYA_FAILED(status, "Unable to create FK controller");
+
+        FuncUtils::matchWorldPositionAndRotation(groupName, jointName); // match position
+
+        MDagPath shapePath;
+        FuncUtils::getShapeFromTransform(controllerName, shapePath);
+        FuncUtils::setDisplayColor(shapePath.node(), chain.controllerColor); // set color
+
+        return MS::kSuccess;
+    }
+
+    MStatus parentControllerGroup(const MString& childController, const MString& parentController)
+    {
+        const MString childGroup = ControllerShapeUtils::controllerGroupName(childController);
+
+        MString command;
+        command.format("parent -absolute \"^1s\" \"^2s\"", childGroup, parentController);
+        return FuncUtils::executeMayaCommand(command, "Cannot parent elbow controller");
+    }
+
+    MStatus constrainJoint(const MString& controllerName, const MString& jointName)
+    {
+        MString command;
+        command.format("parentConstraint -maintainOffset -name \"^1s\" \"^2s\" \"^3s\"",
+            jointName + "_parentConstraint",
+            controllerName,
+            jointName);
+        return FuncUtils::executeMayaCommand(command, "Cannot create FK parent constraint");
+    }
+    // -------------------------------------------------------------------------------------
+
+
+
+    MStatus createSingleChainHierarchy(const SingleChainDefinition& chain, ControllerShapeUtils::ShapeType shapeType)
+    {
+        MStatus status;
+
+        for (const BoneBase& bone : chain.bones)
+        {
+            createFkControllers(chain, bone, shapeType);
+        }
+
+        for (size_t i = 1; i < chain.bones.size(); i++)
+        {
+            const MString parentController = fkControllerName(chain, chain.bones[i - 1]);
+            const MString childController = fkControllerName(chain, chain.bones[i]);
+
+            parentControllerGroup(childController, parentController);
+        }
+
+        for (const BoneBase& bone : chain.bones)
+        {
+            const MString jointName = chain.jointName(bone, "fk");
+            const MString controllerName = fkControllerName(chain, bone);
+
+            constrainJoint(controllerName, jointName);
+        }
+
+        return MS::kSuccess;
+    }
+
+    MStatus createSingleChainControllers(const SingleChainDefinition& chain)
+    {
+        MStatus status = createSingleChainHierarchy(chain, ControllerShapeUtils::ShapeType::Circle);
+        RETURN_IF_MAYA_FAILED(status, "Cannot create single fk controllers");
+
+        MGlobal::displayInfo(chain.prefix() + " Fk controllers created successfully");
+        return MS::kSuccess;
+    }
+
+    MStatus createTreeChainControllers(const TreeBoneDefinition& tree)
+    {
+        const MString wristController = parentFkControllerName(tree);
+
+        for (const SingleChainDefinition& child : tree.children)
+        {
+            MStatus status = createSingleChainHierarchy(child, ControllerShapeUtils::ShapeType::Lollipop);
+            RETURN_IF_MAYA_FAILED(status, "Cannot create finger fk controllers");
+
+            const MString rootController = fkControllerName(child, child.bones.front());
+            parentControllerGroup(rootController, wristController);
+        }
+
+        MGlobal::displayInfo(tree.prefix() + " Fk controllers created successfully");
+        return MS::kSuccess;
     }
 }
 
@@ -29,28 +219,32 @@ MSyntax CreateFkController::newSyntax()
 MStatus CreateFkController::doIt(const MArgList& args)
 {
     MStatus status;
-    
-    status = ChainCommandUtils::parseDefinition(syntax(), args, m_Chain);
-    RETURN_IF_MAYA_FAILED(status, "Cannot read chain definition");
+    MArgDatabase database(syntax(), args, &status);
 
-    for (const BoneDefinition& bone : m_Chain.bones)
+    MString module = "arm";
+    if (database.isFlagSet("-module"))
     {
-        const MString jointName = m_Chain.jointName(bone, "fk");
-        const MString controllerName = fkControllerName(m_Chain, bone);
-        const MString groupName = ControllerShapeUtils::controllerGroupName(controllerName);
+        database.getFlagArgument("-module", 0, module);
+    }
+    module.toLowerCase();
+    m_IsTree = module == "hand";
 
-        if (!FuncUtils::objectExists(jointName))
-        {
-            MGlobal::displayError("Missing joint: " + jointName);
-            return MS::kFailure;
-        }
+    // Validation
+    if (m_IsTree)
+    {
+        status = ChainCommandUtils::parseDefinition(syntax(), args, m_Tree);
+        RETURN_IF_MAYA_FAILED(status, "Cannot read tree chain definition");
 
-        if (FuncUtils::objectExists(controllerName) ||
-            FuncUtils::objectExists(groupName))
-        {
-            MGlobal::displayError("Controller already exists: " + controllerName);
-            return MS::kFailure;
-        }
+        status = validateTreeChain(m_Tree);
+        RETURN_IF_MAYA_FAILED(status, "Cannot validate hand FK chain");
+    }
+    else
+    {
+        status = ChainCommandUtils::parseDefinition(syntax(), args, m_Chain);
+        RETURN_IF_MAYA_FAILED(status, "Cannot read signle chain definition");
+
+        status = validateSingleChain(m_Chain);
+        RETURN_IF_MAYA_FAILED(status, "Cannot validate single FK chain");
     }
 
     return redoIt();
@@ -58,60 +252,12 @@ MStatus CreateFkController::doIt(const MArgList& args)
 
 MStatus CreateFkController::redoIt()
 {
-    MStatus status;
-    
-    for (const BoneDefinition& bone : m_Chain.bones)
+    if (m_IsTree)
     {
-        const MString jointName = m_Chain.jointName(bone, "fk");
-        const MString controllerName = fkControllerName(m_Chain, bone);
-        const MString groupName = ControllerShapeUtils::controllerGroupName(controllerName);
-
-        MObject controllerTransform;
-
-        status = ControllerShapeUtils::createController(
-            controllerName,
-            ControllerShapeUtils::ShapeType::Circle,
-            bone.constrollerRadius,
-            controllerTransform
-            );
-        RETURN_IF_MAYA_FAILED(status, "Unable to create FK controller");
-
-        FuncUtils::matchWorldPositionAndRotation(groupName, jointName); // match position
-
-        MDagPath shapePath;
-        FuncUtils::getShapeFromTransform(controllerName, shapePath);
-        FuncUtils::setDisplayColor(shapePath.node(), m_Chain.controllerColor); // set color
+        return createTreeChainControllers(m_Tree);
     }
 
-    // Create FK hierachy
-    for (size_t i = 1; i < m_Chain.bones.size(); i++)
-    {
-        const MString parentController = fkControllerName(m_Chain, m_Chain.bones[i - 1]);
-        const MString childController = fkControllerName(m_Chain, m_Chain.bones[i]);
-        const MString childGroup = ControllerShapeUtils::controllerGroupName(childController);
-
-        MString command;
-        command.format("parent -absolute \"^1s\" \"^2s\"", childGroup, parentController);
-        FuncUtils::executeMayaCommand(command, "Cannot parent elbow controller");
-    }
-
-    // Controller constraint joints
-    for (const BoneDefinition& bone : m_Chain.bones)
-    {
-        const MString jointName = m_Chain.jointName(bone, "fk");
-        const MString controllerName = fkControllerName(m_Chain, bone);
-
-        MString command;
-        command.format("parentConstraint -maintainOffset -name \"^1s\" \"^2s\" \"^3s\"",
-            jointName + "_parentConstraint",
-            controllerName,
-            jointName);
-        status = FuncUtils::executeMayaCommand(command,"Cannot create FK parent constraint");
-    }
-
-    MGlobal::displayInfo(m_Chain.prefix() + " FK Controllers created successfully");
-
-    return MS::kSuccess;
+    return createSingleChainControllers(m_Chain);
 }
 
 MStatus CreateFkController::undoIt()

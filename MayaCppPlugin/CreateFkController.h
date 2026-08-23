@@ -20,5 +20,8 @@ public:
 
 private:
 
-	BoneChainDefinition m_Chain;
+	bool m_IsTree = false;
+
+	SingleChainDefinition m_Chain;
+	TreeBoneDefinition m_Tree;
 };

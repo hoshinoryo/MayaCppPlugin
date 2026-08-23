@@ -12,17 +12,28 @@ namespace
     constexpr double MIN_VECTOR_LENGTH = 0.000001;
     constexpr double POLE_VECTOR_DISTANCE = 5.0;
 
-    MString ikControllerName(const BoneChainDefinition& chain)
+    // IK chain creation start index
+    size_t rpIkStartIndex(const SingleChainDefinition& chain)
+    {
+        if (chain.module == "arm")
+        {
+            return 1; // from shoudler
+        }
+
+        return 0;
+    }
+
+    MString ikControllerName(const SingleChainDefinition& chain)
     {
         return chain.prefix() + "_ik_ctrl";
     }
 
-    MString poleVectorControllerName(const BoneChainDefinition& chain)
+    MString poleVectorControllerName(const SingleChainDefinition& chain)
     {
         return chain.prefix() + "_ik_pole_ctrl";
     }
 
-    MString ikHandleName(const BoneChainDefinition chain)
+    MString ikHandleName(const SingleChainDefinition chain)
     {
         return chain.prefix() + "_ikHandle";
     }
@@ -112,22 +123,16 @@ MStatus CreateIkController::doIt(const MArgList& args)
         return MS::kInvalidParameter;
     }
 
-    if (m_Chain.bones.size() < 3)
+    const size_t startIndex = rpIkStartIndex(m_Chain);
+    if (m_Chain.bones.size() < startIndex + 3)
     {
         MGlobal::displayError("IK requires at least 3 bones");
         return MS::kFailure;
     }
 
-    // temp
-    /*
-    const MString shoulderJoint = m_Chain.jointName(m_Chain.bones[0], "ik");
-    const MString elbowJoint = m_Chain.jointName(m_Chain.bones[1], "ik");
-    const MString wristJoint = m_Chain.jointName(m_Chain.bones[2], "ik");
-    */
-
-    const MString startJoint = m_Chain.jointName(m_Chain.bones[0], "ik");
-    const MString middleJoint = m_Chain.jointName(m_Chain.bones[1], "ik");
-    const MString endJoint = m_Chain.jointName(m_Chain.bones[2], "ik");
+    const MString startJoint  = m_Chain.jointName(m_Chain.bones[startIndex],     "ik");
+    const MString middleJoint = m_Chain.jointName(m_Chain.bones[startIndex + 1], "ik");
+    const MString endJoint    = m_Chain.jointName(m_Chain.bones[startIndex + 2], "ik");
 
     const MString handleName = ikHandleName(m_Chain);
     const MString controllerName = ikControllerName(m_Chain);
@@ -180,15 +185,10 @@ MStatus CreateIkController::redoIt()
 {
     MStatus status;
 
-    /*
-    const MString shoulderJoint = m_Chain.jointName(m_Chain.bones[0], "ik");
-    const MString elbowJoint = m_Chain.jointName(m_Chain.bones[1], "ik");
-    const MString wristJoint = m_Chain.jointName(m_Chain.bones[2], "ik");
-    */
-
-    const MString startJoint = m_Chain.jointName(m_Chain.bones[0], "ik");
-    const MString middleJoint = m_Chain.jointName(m_Chain.bones[1], "ik");
-    const MString endJoint = m_Chain.jointName(m_Chain.bones[2], "ik");
+    const size_t startIndex = rpIkStartIndex(m_Chain);
+    const MString startJoint  = m_Chain.jointName(m_Chain.bones[startIndex],     "ik");
+    const MString middleJoint = m_Chain.jointName(m_Chain.bones[startIndex + 1], "ik");
+    const MString endJoint    = m_Chain.jointName(m_Chain.bones[startIndex + 2], "ik");
 
     const MString handleName = ikHandleName(m_Chain);
     const MString handleGroupName = ControllerShapeUtils::controllerGroupName(handleName);

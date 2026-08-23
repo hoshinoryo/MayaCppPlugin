@@ -20,5 +20,5 @@ public:
 
 private:
 
-	BoneChainDefinition m_Chain;
+	SingleChainDefinition m_Chain;
 };

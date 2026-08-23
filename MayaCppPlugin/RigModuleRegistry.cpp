@@ -12,14 +12,14 @@
 
 namespace
 {
-    BoneChainDefinition createArmDefinition(const MString& side)
+    SingleChainDefinition createArmDefinition(const MString& side)
     {
-        BoneChainDefinition chain;
+        SingleChainDefinition chain;
 
         chain.module = "arm";
         chain.side = side;
-        chain.guideColor = 14;
-        chain.guideCurveColor = 18;
+        //chain.guideColor = 14;
+        //chain.guideCurveColor = 18;
         chain.controllerColor = side == "R" ? 13 : 6;
         
         const double direction = side == "R" ? -1.0 : 1.0;
@@ -27,8 +27,13 @@ namespace
         chain.bones =
         {
             {
+                "clavicle",
+                MVector(2.0 * direction, 18.0, 0.0),
+                1.6
+            },
+            {
                 "shoulder",
-                MVector(3.0, 18.0, 0.0),
+                MVector(3.0 * direction, 18.0, 0.0),
                 1.6
             },
             {
@@ -46,14 +51,104 @@ namespace
         return chain;
     }
 
-    BoneChainDefinition createLegDefinition(const MString& side)
+    SingleChainDefinition createFingerChain(
+        const TreeBoneDefinition& hand,
+        const MString& fingerName,
+        const std::vector<BoneBase> bones
+    )
     {
-        BoneChainDefinition chain;
+        SingleChainDefinition chain;
+
+        chain.module = hand.module;
+        chain.side = hand.side;
+        chain.chainLabel = fingerName;
+        chain.controllerColor = hand.controllerColor;
+
+        chain.parentGuide = hand.rootGuideName();
+        chain.bones = bones;
+
+        return chain;
+    }
+
+    TreeBoneDefinition createHandDefinition(const MString& side)
+    {
+        TreeBoneDefinition handChain;
+
+        handChain.module = "hand";
+        handChain.side = side;
+        handChain.controllerColor = side == "R" ? 13 : 6;
+
+        handChain.parentModule = "arm";
+        handChain.parentBone = "wrist";
+
+        const double direction = side == "R" ? -1.0 : 1.0;
+
+        handChain.root =
+        {
+            "palm",
+            MVector(13.0 * direction, 18.0, 0.0),
+            1.2
+        };
+        handChain.children =
+        {
+            createFingerChain(
+                handChain,
+                "thumb",
+                {
+                    { "thumb_01", MVector(13.4 * direction, 18.0, 0.4), 0.5 },
+                    { "thumb_02", MVector(14.2 * direction, 18.0, 0.5), 0.5 },
+                    { "thumb_03", MVector(14.8 * direction, 18.0, 0.5), 0.5 },
+                }
+            ),
+            createFingerChain(
+                handChain,
+                "index",
+                {
+                    { "index_01", MVector(14.2 * direction, 18.0, 0.2), 0.5 },
+                    { "index_02", MVector(14.8 * direction, 18.0, 0.2), 0.5 },
+                    { "index_03", MVector(15.2 * direction, 18.0, 0.2), 0.5 },
+                }
+            ),
+            createFingerChain(
+                handChain,
+                "mid",
+                {
+                    { "mid_01", MVector(14.2 * direction, 18.0, 0.0), 0.5 },
+                    { "mid_02", MVector(14.8 * direction, 18.0, 0.0), 0.5 },
+                    { "mid_03", MVector(15.2 * direction, 18.0, 0.0), 0.5 },
+                }
+            ),
+            createFingerChain(
+                handChain,
+                "ring",
+                {
+                    { "ring_01", MVector(14.2 * direction, 18.0, -0.2), 0.5 },
+                    { "ring_02", MVector(14.8 * direction, 18.0, -0.2), 0.5 },
+                    { "ring_03", MVector(15.2 * direction, 18.0, -0.2), 0.5 },
+                }
+            ),
+            createFingerChain(
+                handChain,
+                "pinky",
+                {
+                    { "pinky_01", MVector(14.2 * direction, 18.0, -0.4), 0.5 },
+                    { "pinky_02", MVector(14.8 * direction, 18.0, -0.4), 0.5 },
+                    { "pinky_03", MVector(15.2 * direction, 18.0, -0.4), 0.5 },
+                }
+            )
+        };
+
+        return handChain;
+    }
+
+    SingleChainDefinition createLegDefinition(const MString& side)
+    {
+        SingleChainDefinition chain;
 
         chain.module = "leg";
         chain.side = side;
-        chain.guideColor = 14;
-        chain.guideCurveColor = 18;
+        //chain.guideColor = 14;
+        //chain.guideCurveColor = 18;
         chain.controllerColor = side == "R" ? 13 : 6;
 
         const double direction = side == "R" ? -1.0 : 1.0;
@@ -90,14 +185,14 @@ namespace
         return chain;
     }
 
-    BoneChainDefinition createSpineDefinition()
+    SingleChainDefinition createSpineDefinition()
     {
-        BoneChainDefinition chain;
+        SingleChainDefinition chain;
 
         chain.module = "spine";
         chain.side = "M";
-        chain.guideColor = 14;
-        chain.guideCurveColor = 18;
+        //chain.guideColor = 14;
+        //chain.guideCurveColor = 18;
         chain.controllerColor = 17;
 
         chain.bones =
@@ -111,14 +206,14 @@ namespace
         return chain;
     }
 
-    BoneChainDefinition createHeadDefinition()
+    SingleChainDefinition createHeadDefinition()
     {
-        BoneChainDefinition chain;
+        SingleChainDefinition chain;
 
         chain.module = "head";
         chain.side = "M";
-        chain.guideColor = 14;
-        chain.guideCurveColor = 18;
+        //chain.guideColor = 14;
+        //chain.guideCurveColor = 18;
         chain.controllerColor = 17;
 
         chain.bones =
@@ -135,7 +230,7 @@ namespace
 MStatus RigModuleRegistry::getChain(
     const MString& module,
     const MString& side,
-    BoneChainDefinition& result
+    SingleChainDefinition& result
 )
 {
     if (module == "arm")
@@ -159,6 +254,18 @@ MStatus RigModuleRegistry::getChain(
         return MS::kSuccess;
     }
 
-    MGlobal::displayError("Unspported rig module: " + module);
+    MGlobal::displayError("Unsupported rig module: " + module);
+    return MS::kFailure;
+}
+
+MStatus RigModuleRegistry::getTree(const MString& module, const MString& side, TreeBoneDefinition& result)
+{
+    if (module == "hand")
+    {
+        result = createHandDefinition(side);
+        return MS::kSuccess;
+    }
+
+    MGlobal::displayError("Unsupported rig module: " + module);
     return MS::kFailure;
 }
