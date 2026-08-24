@@ -7,6 +7,7 @@
 #include "CreateFkController.h"
 #include "CreateIkController.h"
 #include "MirrorJointChain.h"
+#include "CreateBindSkeleton.h"
 
 
 MStatus initializePlugin(MObject obj)
@@ -23,6 +24,8 @@ MStatus initializePlugin(MObject obj)
 	status = fnPlugin.registerCommand("CreateFkController", CreateFkController::creator, CreateFkController::newSyntax);
 	status = fnPlugin.registerCommand("CreateIkController", CreateIkController::creator, CreateIkController::newSyntax);
 	status = fnPlugin.registerCommand("MirrorJointChain", MirrorJointChain::creator, MirrorJointChain::newSyntax);
+	status = fnPlugin.registerCommand("CreateBindSkeleton", CreateBindSkeleton::creator);
+
 	if (!status)
 	{
 		status.perror("Plugin commands registeration has failed!");
@@ -46,6 +49,8 @@ MStatus uninitializePlugin(MObject obj)
 	status = fnPlugin.deregisterCommand("CreateFkController");
 	status = fnPlugin.deregisterCommand("CreateIkController");
 	status = fnPlugin.deregisterCommand("MirrorJointChain");
+	status = fnPlugin.deregisterCommand("CreateBindSkeleton");
+
 	if (!status)
 	{
 		status.perror("Plugin commands de-registeration has failed!");

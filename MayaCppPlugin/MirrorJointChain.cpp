@@ -25,6 +25,34 @@ namespace
     {
         return side + "_" + module;
     }
+
+    MStatus mirrorJointHierarchy(
+        const MString& sourceRootJoint,
+        const MString& targetRootJoint,
+        const MString& sourcePrefix,
+        const MString& targetPrefix
+    )
+    {
+        if (!FuncUtils::objectExists(sourceRootJoint))
+        {
+            MGlobal::displayError("Source root joint does not exists: " + sourceRootJoint);
+            return MS::kFailure;
+        }
+        if (FuncUtils::objectExists(targetRootJoint))
+        {
+            MGlobal::displayError("Target root joint already exists: " + targetRootJoint);
+            return MS::kFailure;
+        }
+
+        // Maya mirror command
+        MString command;
+        command.format("mirrorJoint -mirrorYZ -mirrorBehavior -searchReplace \"^1s\" \"^2s\" \"^3s\"",
+            sourcePrefix,
+            targetPrefix,
+            sourceRootJoint);
+
+        return FuncUtils::executeMayaCommand(command, "Failed to create mirror joint");
+    }
 }
 
 
@@ -48,19 +76,11 @@ MStatus MirrorJointChain::doIt(const MArgList& args)
     MArgDatabase database(syntax(), args, &status);
     RETURN_IF_MAYA_FAILED(status, "Cannot read command arguments");
 
-    if (!database.isFlagSet("-module"))
+    if (!database.isFlagSet("-module") ||
+        !database.isFlagSet("-side") ||
+        !database.isFlagSet("-chainType"))
     {
-        MGlobal::displayError("module is required");
-        return MS::kInvalidParameter;
-    }
-    if (!database.isFlagSet("-side"))
-    {
-        MGlobal::displayError("side is required");
-        return MS::kInvalidParameter;
-    }
-    if (!database.isFlagSet("-chainType"))
-    {
-        MGlobal::displayError("chainType is required");
+        MGlobal::displayError("module, side and chainType are required");
         return MS::kInvalidParameter;
     }
 
@@ -97,58 +117,23 @@ MStatus MirrorJointChain::doIt(const MArgList& args)
         const MString sourceRootJoint = sourceTree.rootJointName(chainType);
         const MString targetRootJoint = targetTree.rootJointName(chainType);
 
-        if (!FuncUtils::objectExists(sourceRootJoint))
-        {
-            MGlobal::displayError("Source tree root joint does not exists: " + sourceRootJoint);
-            return MS::kFailure;
-        }
-        if (FuncUtils::objectExists(targetRootJoint))
-        {
-            MGlobal::displayError("Target root joint already exists: " + targetRootJoint);
-            return MS::kFailure;
-        }
+        const MString sourceParentJoint = sidePrefix(sourceTree.parentModule, sourceSide)
+            + "_" + sourceTree.parentBone + "_" + chainType + "_jnt";
+        const MString targetParentJoint = sidePrefix(targetTree.parentModule, targetSide)
+            + "_" + targetTree.parentBone + "_" + chainType + "_jnt";
 
-        const MString sourcePrefix = sourceSide + "_";
-        const MString targetPrefix = targetSide + "_";
-
-        // Maya mirror command
         MString command;
-
         command.format("parent -absolute -world \"^1s\"", sourceRootJoint); // unparent
         FuncUtils::executeMayaCommand(command, "Cannot temporarily unparent source joint");
 
-        command.format("mirrorJoint -mirrorYZ -mirrorBehavior -searchReplace \"^1s\" \"^2s\" \"^3s\"",
-            sourcePrefix,
-            targetPrefix,
-            sourceRootJoint);
-        status = FuncUtils::executeMayaCommand(command, "Failed to create mirror joint");
-        if (!status) return status;
-
-        const MString sourceParentJoint = sidePrefix(sourceTree.parentModule, sourceSide)
-            + "_" + sourceTree.parentBone + "_" + chainType + "_jnt";
+        const MStatus mirrorStatus = mirrorJointHierarchy(sourceRootJoint, targetRootJoint,
+            sourceSide + "_", targetSide + "_");
+   
         command.format("parent -absolute \"^1s\" \"^2s\"", sourceRootJoint, sourceParentJoint);
         FuncUtils::executeMayaCommand(command,"Cannot restore source joint parent");
 
-        // Validation
-        if (!FuncUtils::objectExists(targetRootJoint))
-        {
-            MGlobal::displayError("Mirrored hand was not renamed to: " +targetRootJoint);
-            return MS::kFailure;
-        }
-
-        const MString targetParentJoint = sidePrefix(targetTree.parentModule, targetSide)
-            + "_" + targetTree.parentBone + "_" + chainType + "_jnt"; // Mirrored wrist
-        if (!FuncUtils::objectExists(targetParentJoint))
-        {
-            MGlobal::displayError("Target parent joint does not exists: " + targetParentJoint);
-            return MS::kFailure;
-        }
-
-        command.format("parent -absolute \"^1s\" \"^2s\"",
-            targetRootJoint,
-            targetParentJoint);
-        status = FuncUtils::executeMayaCommand(command, "Cannot parent mirrored hand to target wrist");
-        if (!status) return status;
+        command.format("parent -absolute \"^1s\" \"^2s\"", targetRootJoint, targetParentJoint);
+        FuncUtils::executeMayaCommand(command, "Cannot parent mirrored hand to target wrist");
 
         MGlobal::displayInfo("Hand joint tree mirrored successfully");
 
@@ -174,36 +159,11 @@ MStatus MirrorJointChain::doIt(const MArgList& args)
     const MString sourceRootJoint = sourceChain.jointName(sourceChain.bones.front(), chainType);
     const MString targetRootJoint = targetChain.jointName(targetChain.bones.front(), chainType);
 
-    if (!FuncUtils::objectExists(sourceRootJoint))
-    {
-        MGlobal::displayError("Source root joint does not exists: " + sourceRootJoint);
-        return MS::kFailure;
-    }
-
-    for (const BoneBase& targetBone : targetChain.bones)
-    {
-        const MString targetJoint = targetChain.jointName(targetBone, chainType);
-
-        if (FuncUtils::objectExists(targetJoint))
-        {
-            MGlobal::displayError("Target joint already exists: " + targetJoint);
-            return MS::kFailure;
-        }
-    }
-
     // Name replace rule
     const MString sourcePrefix = sidePrefix(module, sourceSide);
     const MString targetPrefix = sidePrefix(module, targetSide);
 
-    // Maya mirror command
-    MString command;
-    command.format("mirrorJoint -mirrorYZ -mirrorBehavior -searchReplace \"^1s\" \"^2s\" \"^3s\"",
-        sourcePrefix,
-        targetPrefix,
-        sourceRootJoint);
-
-    status = FuncUtils::executeMayaCommand(command, "Failed to create mirror joint");
-    if (!status) return status;
+    const MStatus mirrorStatus = mirrorJointHierarchy(sourceRootJoint, targetRootJoint, sourcePrefix, targetPrefix);
 
     MGlobal::displayInfo("Mirror joint create successfully");
 

@@ -21,6 +21,8 @@ namespace FuncUtils
     MStatus getWorldPosition(const MString& transformNode, MVector& worldPosition); // getter
     MStatus setWorldPosition(const MString& transformNode, const MVector& worldPosition); // setter
 
+    MStatus getWorldMatrix(const MString& nodeName, MMatrix& result);
+
     MStatus matchWorldPositionAndRotation(const MString& destinationNode, const MString& sourceNode);
     MStatus buildAimOrientationMatrix(const MVector& startPosition, const MVector& endPosition, MMatrix& orientationMatrix);
     MQuaternion matrixToQuaternion(const MMatrix& matrix);

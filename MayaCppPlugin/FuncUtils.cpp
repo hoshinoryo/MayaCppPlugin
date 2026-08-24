@@ -131,6 +131,18 @@ MStatus FuncUtils::setWorldPosition(const MString& transformNode, const MVector&
     return MS::kSuccess;
 }
 
+MStatus FuncUtils::getWorldMatrix(const MString& nodeName, MMatrix& result)
+{
+    MStatus status;
+    MDagPath path;
+
+    getDagPath(nodeName, path);
+    result = path.inclusiveMatrix(&status);
+    RETURN_IF_MAYA_FAILED(status, "Cannot read world matrix: " + nodeName);
+
+    return MS::kSuccess;
+}
+
 MStatus FuncUtils::matchWorldPositionAndRotation(const MString& destNode, const MString& sourceNode)
 {
     MStatus status;

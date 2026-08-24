@@ -13,7 +13,7 @@ CREATE_JOINT_COMMAND_NAME = "CreateJointChain"
 MIRROR_JOINT_COMMAND_NAME = "MirrorJointChain"
 CREATE_FK_COMMAND_NAME = "CreateFkController"
 CREATE_IK_COMMAND_NAME = "CreateIkController"
-
+CREATE_BIND_COMMAND_NAME = "CreateBindSkeleton"
 
 MODULE_ORDER = (
     "arm",
@@ -245,6 +245,9 @@ class RigBuildController(QtCore.QObject):
                 build_ik=definition["ik"]
             )
 
+        # bind bone
+        self.execute_plugin_command(CREATE_BIND_COMMAND_NAME)
+
     # ------------------------------------------------------------------
     # Module buttons
     # ------------------------------------------------------------------
@@ -370,16 +373,18 @@ class RigBuildController(QtCore.QObject):
     # Maya command execution
     # ------------------------------------------------------------------
 
-    def execute_plugin_command(self, command_name, module, side, **extra_arguments):
+    def execute_plugin_command(self, command_name, module=None, side=None, **extra_arguments):
         command = getattr(cmds, command_name, None)
 
         if command is None:
             raise RuntimeError("Maya command is not registered: {}".format(command_name))
 
-        arguments = {
-            "module": module,
-            "side": side,
-        }
+        arguments = {}
+
+        if module is not None:
+            arguments["module"] = module
+        if side is not None:
+            arguments["side"] = side
 
         arguments.update(extra_arguments)
 
