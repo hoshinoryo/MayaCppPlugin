@@ -34,7 +34,7 @@ class RigBuildView(MayaQWidgetDockableMixin, QtWidgets.QWidget):
         )
 
         self.build_full_body_button = QtWidgets.QPushButton(
-            "build bones and controllers"
+            "Build bones and controllers"
         )
 
         self.configure_large_button(self.create_full_body_guides_button)

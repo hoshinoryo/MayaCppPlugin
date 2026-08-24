@@ -3,6 +3,7 @@
 #include "StatusUtils.h"
 #include "FuncUtils.h"
 #include "RigModuleRegistry.h"
+#include "ControllerShapeUtils.h"
 
 #include <vector>
 #include <maya/MGlobal.h>
@@ -15,6 +16,8 @@
 namespace
 {
     constexpr const char* ROOT_BIND_JOINT = "M_root_bind_jnt";
+    constexpr const char* ROOT_BIND_CONTROLLER = "M_root_bind_ctrl";
+    constexpr const char* ROOT_BIND_CONTROLLER_GROUP = "M_root_bind_ctrl_grp";
 
     struct BindBone
     {
@@ -138,6 +141,9 @@ namespace
         return MS::kSuccess;
     }
 
+    // -------------------------------------------------------------------------------------
+    // Root joint and controller
+    // -------------------------------------------------------------------------------------
     MStatus createRootJoint(MObject& rootObject)
     {
         MStatus status;
@@ -153,6 +159,36 @@ namespace
         rootFn.setOrientation(MQuaternion());
 
         return MS::kSuccess;
+    }
+
+    MStatus createRootController()
+    {
+        MStatus status;
+        MObject controllerTransform;
+
+        status = ControllerShapeUtils::createController(
+            ROOT_BIND_CONTROLLER,
+            ControllerShapeUtils::ShapeType::Circle,
+            5.0,
+            controllerTransform);
+        RETURN_IF_MAYA_FAILED(status, "Failed to create root controller");
+
+        MString command;
+        command.format("rotate -relative -objectSpace 0 0 90 \"^1s.cv[*]\";",
+            ROOT_BIND_CONTROLLER);
+        FuncUtils::executeMayaCommand(command, "Cannot rotate root controller shape");
+
+        MDagPath shapePath;
+        FuncUtils::getShapeFromTransform(ROOT_BIND_CONTROLLER, shapePath);
+        FuncUtils::setDisplayColor(shapePath.node(), 20);
+        FuncUtils::matchWorldPositionAndRotation(ROOT_BIND_CONTROLLER_GROUP, ROOT_BIND_JOINT);
+
+        command.format("parentConstraint -name \"^1s\" \"^2s\" \"^3s\";",
+            MString(ROOT_BIND_JOINT) + "_parentConstraint",
+            ROOT_BIND_CONTROLLER,
+            ROOT_BIND_JOINT);
+
+        return FuncUtils::executeMayaCommand(command, "Cannot constrain root bind joint");
     }
 
     MStatus createBindJoint(const BindBone& bone)
@@ -220,6 +256,7 @@ MStatus CreateBindSkeleton::doIt(const MArgList& args)
 
     MObject rootObject;
     createRootJoint(rootObject);
+    createRootController();
 
     for (const BindBone& bone : bones)
     {

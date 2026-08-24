@@ -8,6 +8,7 @@
 #include "CreateIkController.h"
 #include "MirrorJointChain.h"
 #include "CreateBindSkeleton.h"
+#include "OrganizeControllerHierarchy.h"
 
 
 MStatus initializePlugin(MObject obj)
@@ -25,6 +26,7 @@ MStatus initializePlugin(MObject obj)
 	status = fnPlugin.registerCommand("CreateIkController", CreateIkController::creator, CreateIkController::newSyntax);
 	status = fnPlugin.registerCommand("MirrorJointChain", MirrorJointChain::creator, MirrorJointChain::newSyntax);
 	status = fnPlugin.registerCommand("CreateBindSkeleton", CreateBindSkeleton::creator);
+	status = fnPlugin.registerCommand("OrganizeControllerHierarchy", OrganizeControllerHierarchy::creator);
 
 	if (!status)
 	{
@@ -50,6 +52,7 @@ MStatus uninitializePlugin(MObject obj)
 	status = fnPlugin.deregisterCommand("CreateIkController");
 	status = fnPlugin.deregisterCommand("MirrorJointChain");
 	status = fnPlugin.deregisterCommand("CreateBindSkeleton");
+	status = fnPlugin.deregisterCommand("OrganizeControllerHierarchy");
 
 	if (!status)
 	{

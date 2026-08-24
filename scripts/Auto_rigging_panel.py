@@ -14,6 +14,9 @@ MIRROR_JOINT_COMMAND_NAME = "MirrorJointChain"
 CREATE_FK_COMMAND_NAME = "CreateFkController"
 CREATE_IK_COMMAND_NAME = "CreateIkController"
 CREATE_BIND_COMMAND_NAME = "CreateBindSkeleton"
+ORGANIZE_CONTROLLERS_COMMAND_NAME = "OrganizeControllerHierarchy"
+
+
 
 MODULE_ORDER = (
     "arm",
@@ -247,6 +250,9 @@ class RigBuildController(QtCore.QObject):
 
         # bind bone
         self.execute_plugin_command(CREATE_BIND_COMMAND_NAME)
+
+        self.execute_plugin_command(ORGANIZE_CONTROLLERS_COMMAND_NAME)
+
 
     # ------------------------------------------------------------------
     # Module buttons

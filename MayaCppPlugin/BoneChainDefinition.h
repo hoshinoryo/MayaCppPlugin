@@ -2,6 +2,7 @@
 ///
 /// [Bone chain definition]
 /// Definition of bone and bone chain.
+/// Single bone chain and tree bone chain
 /// 
 ///----------------------------------------------------------------------------------------
 
