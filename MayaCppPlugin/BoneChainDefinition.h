@@ -12,11 +12,48 @@
 #include <maya/MVector.h>
 #include <vector>
 
+enum class JointBuildMode
+{
+	FkOnly,
+	FkAndIk
+};
+
+struct BoneParentRef
+{
+	MString module;
+	MString label;
+	MString side;
+
+	bool isValid() const
+	{
+		return module.length() > 0 && label.length() > 0;
+	}
+};
+
 struct BoneBase
 {
 	MString label;
 	MVector position;
-	double controllerRadius = 1.0;
+	double  controllerRadius = 1.0;
+
+	JointBuildMode jointBuildMode = JointBuildMode::FkOnly;
+
+	BoneParentRef parent;
+
+	// Create ik joint or not
+	bool buildsJointType(const MString& chainType) const
+	{
+		if (chainType == "fk")
+		{
+			return true;
+		}
+
+		if (chainType == "ik")
+		{
+			return jointBuildMode == JointBuildMode::FkAndIk;
+		}
+		return false;
+	}
 };
 
 struct BoneStructureBase
@@ -48,6 +85,9 @@ struct BoneStructureBase
 		return prefix() + "_guide_curve";
 	}
 
+	/// <summary>
+	/// Find bone name
+	/// </summary>
 	MString jointName(const BoneBase& bone, const MString& chainType) const
 	{
 		return prefix() + "_" + bone.label + "_" + chainType + "_jnt";
@@ -64,6 +104,16 @@ struct SingleChainDefinition : BoneStructureBase
 	// Parent bone setting
 	MString parentGuide;
 	MString parentJoint;
+
+	MString guideCurveName() const
+	{
+		if (chainLabel.length() > 0 && chainLabel != module)
+		{
+			return prefix() + "_" + chainLabel + "_guide_curve";
+		}
+
+		return BoneStructureBase::guideCurveName();
+	}
 };
 
 // Hand/wings
@@ -75,7 +125,7 @@ struct TreeBoneDefinition : BoneStructureBase
 
 	// Parent bone setting
 	MString parentModule;
-	MString parentBone;
+	MString parentLabel;
 
 	MString rootJointName(const MString& chainType) const
 	{

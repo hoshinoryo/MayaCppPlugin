@@ -21,7 +21,7 @@ namespace
             ? "M_" + tree.parentModule
             : tree.side + "_" + tree.parentModule;
 
-        return prefix + "_" + tree.parentBone + "_fk_ctrl";
+        return prefix + "_" + tree.parentLabel + "_fk_ctrl";
     }
 
     // -------------------------------------------------------------------------------------

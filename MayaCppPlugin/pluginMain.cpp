@@ -3,7 +3,7 @@
 #include <maya/MObject.h>
 
 #include "CreateJointChain.h"
-#include "PreBuildBoneChain.h"
+#include "PreBuildGuide.h"
 #include "CreateFkController.h"
 #include "CreateIkController.h"
 #include "MirrorJointChain.h"
@@ -19,9 +19,9 @@ MStatus initializePlugin(MObject obj)
 	MStatus status;
 	MFnPlugin fnPlugin(obj, pluginVendor, pluginVersion);
 
-	//status = fnPlugin.registerCommand("CustomSphere", CustomSphere::creator);
+
 	status = fnPlugin.registerCommand("CreateJointChain", CreateJointChain::creator, CreateJointChain::newSyntax);
-	status = fnPlugin.registerCommand("PreBuildBoneChain", PreBuildBoneChain::creator, PreBuildBoneChain::newSyntax);
+	status = fnPlugin.registerCommand("PreBuildGuide", PreBuildGuide::creator, PreBuildGuide::newSyntax);
 	status = fnPlugin.registerCommand("CreateFkController", CreateFkController::creator, CreateFkController::newSyntax);
 	status = fnPlugin.registerCommand("CreateIkController", CreateIkController::creator, CreateIkController::newSyntax);
 	status = fnPlugin.registerCommand("MirrorJointChain", MirrorJointChain::creator, MirrorJointChain::newSyntax);
@@ -45,9 +45,9 @@ MStatus uninitializePlugin(MObject obj)
 	MStatus status;
 	MFnPlugin fnPlugin(obj);
 
-	//status = fnPlugin.deregisterCommand("CustomSphere");
+
 	status = fnPlugin.deregisterCommand("CreateJointChain");
-	status = fnPlugin.deregisterCommand("PreBuildBoneChain");
+	status = fnPlugin.deregisterCommand("PreBuildGuide");
 	status = fnPlugin.deregisterCommand("CreateFkController");
 	status = fnPlugin.deregisterCommand("CreateIkController");
 	status = fnPlugin.deregisterCommand("MirrorJointChain");

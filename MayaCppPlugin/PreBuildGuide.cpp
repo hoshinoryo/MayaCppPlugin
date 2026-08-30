@@ -1,4 +1,4 @@
-#include "PreBuildBoneChain.h"
+#include "PreBuildGuide.h"
 #include "StatusUtils.h"
 #include "FuncUtils.h"
 #include "ChainCommandUtils.h"
@@ -210,7 +210,7 @@ namespace
         const MString parentPrefix = tree.side.length() == 0 || tree.side == "M"
             ? "M_" + tree.parentModule
             : tree.side + "_" + tree.parentModule;
-        const MString parentGuideName = parentPrefix + "_" + tree.parentBone + "_guide";
+        const MString parentGuideName = parentPrefix + "_" + tree.parentLabel + "_guide";
 
         MDagPath parentGuidePath;
         FuncUtils::getDagPath(parentGuideName, parentGuidePath);
@@ -244,18 +244,18 @@ namespace
 }
 
 
-void* PreBuildBoneChain::creator()
+void* PreBuildGuide::creator()
 {
-    return new PreBuildBoneChain();
+    return new PreBuildGuide();
 }
 
-MSyntax PreBuildBoneChain::newSyntax()
+MSyntax PreBuildGuide::newSyntax()
 {
     return ChainCommandUtils::createSyntax();
 }
 
 
-MStatus PreBuildBoneChain::doIt(const MArgList& args)
+MStatus PreBuildGuide::doIt(const MArgList& args)
 {
     MStatus status;
     MString module, side;

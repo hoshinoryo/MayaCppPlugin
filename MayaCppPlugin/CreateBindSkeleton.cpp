@@ -32,59 +32,84 @@ namespace
         return bindJoint + "_parentConstraint";
     }
 
-    MStatus appendSingleChain(
-        const SingleChainDefinition& chain,
-        const MString& parentBindJoint,
-        bool useIk,
+    MString registeredJointName(const MString& module, const MString& side, const MString& bone, const MString& chainType)
+    {
+        const MString prefix = side.length() == 0 || side == "M"
+            ? "M_" + module
+            : side + "_" + module;
+
+        return prefix + "_" + bone + "_" + chainType + "_jnt";
+    }
+
+    MString bindParentName(const BoneStructureBase& owner, const BoneBase& bone)
+    {
+        if (!bone.parent.isValid())
+        {
+            return ROOT_BIND_JOINT;
+        }
+        
+        const MString parentSide = bone.parent.side.length() > 0
+            ? bone.parent.side
+            : owner.side;
+
+        return registeredJointName(bone.parent.module, parentSide, bone.parent.label, "bind");
+    }
+
+    MStatus appendBone(
+        const BoneStructureBase& owner,
+        const BoneBase& bone,
         std::vector<BindBone>& result
     )
     {
-        if (chain.bones.empty())
+        BindBone bindBone;
+
+        bindBone.bindJoint = owner.jointName(bone, "bind");
+        bindBone.parentJoint = bindParentName(owner, bone);
+
+        if (bone.buildsJointType("fk"))
         {
-            MGlobal::displayError("Module contains no bones: " + chain.prefix());
+            bindBone.drivers.push_back(owner.jointName(bone, "fk"));
+        }
+        if (bone.buildsJointType("ik"))
+        {
+            bindBone.drivers.push_back(owner.jointName(bone, "ik"));
+        }
+
+        if (bindBone.drivers.empty())
+        {
+            MGlobal::displayError("Bind bone has no registered drivers: " + bindBone.bindJoint);
             return MS::kFailure;
         }
 
-        MString currentParent = parentBindJoint;
+        result.push_back(bindBone);
+        return MS::kSuccess;
+    }
 
+    MStatus appendSingleChain(
+        const SingleChainDefinition& chain,
+        std::vector<BindBone>& result
+    )
+    {
         for (const BoneBase& bone : chain.bones)
         {
-            BindBone bindBone;
-
-            bindBone.bindJoint = chain.jointName(bone, "bind");
-            bindBone.parentJoint = currentParent;
-            bindBone.drivers.push_back(chain.jointName(bone, "fk"));
-
-            if (useIk)
-            {
-                bindBone.drivers.push_back(chain.jointName(bone, "ik"));
-            }
-
-            result.push_back(bindBone);
-            currentParent = bindBone.bindJoint;
+            MStatus status = appendBone(chain, bone, result);
+            if (!status) return status;
         }
 
         return MS::kSuccess;
     }
 
-    MStatus appendTreeChain(
+    MStatus appendTree(
         const TreeBoneDefinition& tree,
-        const MString& parentBindJoint,
         std::vector<BindBone>& result
     )
     {
-        BindBone root;
-
-        root.bindJoint = tree.rootJointName("bind");
-        root.parentJoint = parentBindJoint;
-        root.drivers.push_back(tree.rootJointName("fk"));
-
-        result.push_back(root);
+        MStatus status = appendBone(tree, tree.root, result);
+        RETURN_IF_MAYA_FAILED(status, "Cannot append tree root bind bone");
 
         for (const SingleChainDefinition& chain : tree.children)
         {
-            MStatus status = appendSingleChain(chain, root.bindJoint, false, result);
-            RETURN_IF_MAYA_FAILED(status, "Cannot append child bind chain");
+            appendSingleChain(chain, result);
         }
 
         return MS::kSuccess;
@@ -92,51 +117,41 @@ namespace
 
     MStatus buildBindDefinition(std::vector<BindBone>& result)
     {
-        MStatus status;
+        struct ChainRequest
+        {
+            const char* module;
+            const char* side;
+        };
 
-        SingleChainDefinition spine;
-        SingleChainDefinition head;
-        SingleChainDefinition leftArm;
-        SingleChainDefinition rightArm;
-        SingleChainDefinition leftLeg;
-        SingleChainDefinition rightLeg;
+        const ChainRequest chainRequests[] = {
+            { "spine", "M" },
+            { "head", "M" },
+            { "arm", "L" },
+            { "arm", "R" },
+            { "leg", "L" },
+            { "leg", "R" }
+        };
+        const ChainRequest treeRequests[] = {
+            { "hand", "L" },
+            { "hand", "R" }
+        };
 
-        TreeBoneDefinition leftHand;
-        TreeBoneDefinition rightHand;
+        for (const ChainRequest& request : chainRequests)
+        {
+            SingleChainDefinition chain;
+            MStatus status = RigModuleRegistry::getChain(request.module, request.side, chain);
+            RETURN_IF_MAYA_FAILED(status, "Cannot read chain definition");
 
-        status = RigModuleRegistry::getChain("spine", "M", spine);
-        RETURN_IF_MAYA_FAILED(status, "Cannot read spine definition");
-        status = RigModuleRegistry::getChain("head", "M", head);
-        RETURN_IF_MAYA_FAILED(status, "Cannot read head definition");
-        status = RigModuleRegistry::getChain("arm", "L", leftArm);
-        RETURN_IF_MAYA_FAILED(status, "Cannot read left arm definition");
-        status = RigModuleRegistry::getChain("arm", "R", rightArm);
-        RETURN_IF_MAYA_FAILED(status, "Cannot read right arm definition");
-        status = RigModuleRegistry::getChain("leg", "L", leftLeg);
-        RETURN_IF_MAYA_FAILED(status, "Cannot read left leg definition");
-        status = RigModuleRegistry::getChain("leg", "R", rightLeg);
-        RETURN_IF_MAYA_FAILED(status, "Cannot read right leg definition");
-        status = RigModuleRegistry::getTree("hand", "L", leftHand);
-        RETURN_IF_MAYA_FAILED(status, "Cannot read left hand definition");
-        status = RigModuleRegistry::getTree("hand", "R", rightHand);
-        RETURN_IF_MAYA_FAILED(status, "Cannot read right hand definition");
+            appendSingleChain(chain, result);
+        }
+        for (const ChainRequest& request : treeRequests)
+        {
+            TreeBoneDefinition tree;
+            MStatus status = RigModuleRegistry::getTree(request.module, request.side, tree);
+            RETURN_IF_MAYA_FAILED(status, "Cannot read chain definition");
 
-        appendSingleChain(spine, ROOT_BIND_JOINT, false, result);
-
-        const MString pelvisBind = spine.jointName(spine.bones.front(), "bind");
-        const MString chestBind = spine.jointName(spine.bones.back(), "bind");
-
-        appendSingleChain(head, chestBind, false, result);
-        appendSingleChain(leftArm, chestBind, true, result);
-        appendSingleChain(rightArm, chestBind, true, result);
-        appendSingleChain(leftLeg, pelvisBind, true, result);
-        appendSingleChain(rightLeg, pelvisBind, true, result);
-
-        const MString leftWristBind = leftArm.jointName(leftArm.bones.back(), "bind");
-        const MString rightWristBind = rightArm.jointName(rightArm.bones.back(), "bind");
-
-        appendTreeChain(leftHand, leftWristBind, result);
-        appendTreeChain(rightHand, rightWristBind, result);
+            appendTree(tree, result);
+        }
 
         return MS::kSuccess;
     }
@@ -205,10 +220,9 @@ namespace
         RETURN_IF_MAYA_FAILED(status, "Cannot read bind parent world matrix");
 
         const MMatrix localMatrix = worldMatrix * parentWorldMatrix.inverse();
+        const MTransformationMatrix localTransform(localMatrix);
 
-        MTransformationMatrix localTransform(localMatrix);
-
-        const MVector localTranslation = localTransform.getTranslation(MSpace::kTransform);
+        const MVector localTranslation  = localTransform.getTranslation(MSpace::kTransform);
         const MQuaternion localRotation = localTransform.rotation();
 
         MFnIkJoint jointFn;
@@ -253,6 +267,18 @@ MStatus CreateBindSkeleton::doIt(const MArgList& args)
     std::vector<BindBone> bones;
     status = buildBindDefinition(bones);
     RETURN_IF_MAYA_FAILED(status, "Failed to build bind skeleton definition");
+
+    for (const BindBone& bone : bones)
+    {
+        for (const MString& driver : bone.drivers)
+        {
+            if (!FuncUtils::objectExists(driver))
+            {
+                MGlobal::displayError("Missing bind driver: " + driver);
+                return MS::kFailure;
+            }
+        }
+    }
 
     MObject rootObject;
     createRootJoint(rootObject);

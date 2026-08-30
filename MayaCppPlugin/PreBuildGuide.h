@@ -4,7 +4,7 @@
 #include <maya/MArgList.h>
 #include <maya/MPxCommand.h>
 
-class PreBuildBoneChain : public MPxCommand
+class PreBuildGuide : public MPxCommand
 {
 public:
 

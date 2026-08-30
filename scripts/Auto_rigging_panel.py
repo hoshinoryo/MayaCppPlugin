@@ -8,7 +8,7 @@ from Auto_rigging_view import RigBuildView
 
 PLUGIN_NAME = "MayaCppPlugin"
 
-PRE_BUILD_COMMAND_NAME = "PreBuildBoneChain"
+PRE_BUILD_COMMAND_NAME = "PreBuildGuide"
 CREATE_JOINT_COMMAND_NAME = "CreateJointChain"
 MIRROR_JOINT_COMMAND_NAME = "MirrorJointChain"
 CREATE_FK_COMMAND_NAME = "CreateFkController"

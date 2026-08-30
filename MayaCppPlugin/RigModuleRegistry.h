@@ -2,6 +2,8 @@
 
 #include "BoneChainDefinition.h"
 
+#include <maya/MStatus.h>
+
 namespace RigModuleRegistry
 {
 	MStatus getChain(const MString& module, const MString& side, SingleChainDefinition& result);

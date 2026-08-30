@@ -162,7 +162,7 @@
     <ClCompile Include="MirrorJointChain.cpp" />
     <ClCompile Include="OrganizeControllerHierarchy.cpp" />
     <ClCompile Include="pluginMain.cpp" />
-    <ClCompile Include="PreBuildBoneChain.cpp" />
+    <ClCompile Include="PreBuildGuide.cpp" />
     <ClCompile Include="RigModuleRegistry.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -176,7 +176,7 @@
     <ClInclude Include="CustomCreateSphere.h" />
     <ClInclude Include="MirrorJointChain.h" />
     <ClInclude Include="OrganizeControllerHierarchy.h" />
-    <ClInclude Include="PreBuildBoneChain.h" />
+    <ClInclude Include="PreBuildGuide.h" />
     <ClInclude Include="RigModuleRegistry.h" />
     <ClInclude Include="StatusUtils.h" />
   </ItemGroup>
