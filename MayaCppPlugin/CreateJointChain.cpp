@@ -130,6 +130,11 @@ namespace
             parentSide,
             childBone.parent.label,
             parentChainType);
+        
+        if (!FuncUtils::objectExists(parentJointName)) // in module mode there will be no parent module
+        {
+            return MS::kSuccess;
+        }
 
         MDagPath parentPath;
         FuncUtils::getDagPath(parentJointName, parentPath);

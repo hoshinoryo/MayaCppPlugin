@@ -111,7 +111,7 @@ MStatus FuncUtils::getWorldPosition(const MString& transformNode, MVector& world
     MFnTransform transformFn(transformPath);
 
     worldPosition = transformFn.getTranslation(MSpace::kWorld, &status);
-    RETURN_IF_MAYA_FAILED(status, "Cannot read transform world position");
+    RETURN_IF_MAYA_FAILED(status, "Cannot read transform world position: " + transformNode);
 
     return MS::kSuccess;
 }

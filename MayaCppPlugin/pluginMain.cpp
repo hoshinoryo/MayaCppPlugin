@@ -25,7 +25,7 @@ MStatus initializePlugin(MObject obj)
 	status = fnPlugin.registerCommand("CreateFkController", CreateFkController::creator, CreateFkController::newSyntax);
 	status = fnPlugin.registerCommand("CreateIkController", CreateIkController::creator, CreateIkController::newSyntax);
 	status = fnPlugin.registerCommand("MirrorJointChain", MirrorJointChain::creator, MirrorJointChain::newSyntax);
-	status = fnPlugin.registerCommand("CreateBindSkeleton", CreateBindSkeleton::creator);
+	status = fnPlugin.registerCommand("CreateBindSkeleton", CreateBindSkeleton::creator, CreateBindSkeleton::newSyntax);
 	status = fnPlugin.registerCommand("OrganizeControllerHierarchy", OrganizeControllerHierarchy::creator);
 
 	if (!status)

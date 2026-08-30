@@ -11,6 +11,7 @@
 #include <maya/MQuaternion.h>
 #include <maya/MDagPath.h>
 #include <maya/MMatrix.h>
+#include <maya/MArgDatabase.h>
 
 
 namespace
@@ -56,32 +57,33 @@ namespace
     }
 
     MStatus appendBone(
-        const BoneStructureBase& owner,
+        const BoneStructureBase& chain,
         const BoneBase& bone,
         std::vector<BindBone>& result
     )
     {
         BindBone bindBone;
 
-        bindBone.bindJoint = owner.jointName(bone, "bind");
-        bindBone.parentJoint = bindParentName(owner, bone);
+        bindBone.bindJoint = chain.jointName(bone, "bind");
+        bindBone.parentJoint = bindParentName(chain, bone);
 
-        if (bone.buildsJointType("fk"))
-        {
-            bindBone.drivers.push_back(owner.jointName(bone, "fk"));
-        }
-        if (bone.buildsJointType("ik"))
-        {
-            bindBone.drivers.push_back(owner.jointName(bone, "ik"));
-        }
+        const MString fkJoint = chain.jointName(bone, "fk");
+        const MString ikJoint = chain.jointName(bone, "ik");
 
-        if (bindBone.drivers.empty())
+        if (bone.buildsJointType("fk") && FuncUtils::objectExists(fkJoint))
         {
-            MGlobal::displayError("Bind bone has no registered drivers: " + bindBone.bindJoint);
-            return MS::kFailure;
+            bindBone.drivers.push_back(fkJoint);
+        }
+        if (bone.buildsJointType("ik") && FuncUtils::objectExists(ikJoint))
+        {
+            bindBone.drivers.push_back(ikJoint);
         }
 
-        result.push_back(bindBone);
+        if (!bindBone.drivers.empty())
+        {
+            result.push_back(bindBone);
+        }
+
         return MS::kSuccess;
     }
 
@@ -210,14 +212,31 @@ namespace
     {
         MStatus status;
 
-        MDagPath parentPath;
-        FuncUtils::getDagPath(bone.parentJoint, parentPath);
+        MObject parentObject = MObject::kNullObj;
+        MMatrix parentWorldMatrix = MMatrix::identity;
+        MString parentJoint;
+        
+        if (FuncUtils::objectExists(bone.parentJoint))
+        {
+            parentJoint = bone.parentJoint;
+        }
+        else if (FuncUtils::objectExists(ROOT_BIND_JOINT))
+        {
+            parentJoint = ROOT_BIND_JOINT;
+        }
+
+        if (parentJoint.length() > 0)
+        {
+            MDagPath parentPath;
+            FuncUtils::getDagPath(parentJoint, parentPath);
+
+            parentObject = parentPath.node();
+            parentWorldMatrix = parentPath.inclusiveMatrix(&status);
+            RETURN_IF_MAYA_FAILED(status, "Cannot read bind parent world matrix");
+        }
 
         MMatrix worldMatrix;
         FuncUtils::getWorldMatrix(bone.drivers.front(), worldMatrix); // world matrix get from driver
-
-        const MMatrix parentWorldMatrix = parentPath.inclusiveMatrix(&status);
-        RETURN_IF_MAYA_FAILED(status, "Cannot read bind parent world matrix");
 
         const MMatrix localMatrix = worldMatrix * parentWorldMatrix.inverse();
         const MTransformationMatrix localTransform(localMatrix);
@@ -226,8 +245,7 @@ namespace
         const MQuaternion localRotation = localTransform.rotation();
 
         MFnIkJoint jointFn;
-
-        MObject jointObject = jointFn.create(parentPath.node(), &status);
+        MObject jointObject = jointFn.create(parentObject, &status);
         RETURN_IF_MAYA_FAILED(status, "Cannot create bind joint: " + bone.bindJoint);
 
         jointFn.setName(bone.bindJoint, false);
@@ -260,37 +278,57 @@ void* CreateBindSkeleton::creator()
     return new CreateBindSkeleton();
 }
 
+MSyntax CreateBindSkeleton::newSyntax()
+{
+    MSyntax syntax;
+    syntax.addFlag("-cr", "-createRoot", MSyntax::kBoolean);
+
+    return syntax;
+}
+
 MStatus CreateBindSkeleton::doIt(const MArgList& args)
 {
     MStatus status;
+    MArgDatabase database(syntax(), args, &status);
+
+    bool createRoot = true;
+    if (database.isFlagSet("-createRoot"))
+    {
+        database.getFlagArgument("-createRoot", 0, createRoot);
+    }
 
     std::vector<BindBone> bones;
     status = buildBindDefinition(bones);
     RETURN_IF_MAYA_FAILED(status, "Failed to build bind skeleton definition");
 
-    for (const BindBone& bone : bones)
+    if (bones.empty())
     {
-        for (const MString& driver : bone.drivers)
+        MGlobal::displayWarning("No fk or ik joints found for bind skeleton");
+    }
+    if (createRoot)
+    {
+        if (!FuncUtils::objectExists(ROOT_BIND_JOINT))
         {
-            if (!FuncUtils::objectExists(driver))
-            {
-                MGlobal::displayError("Missing bind driver: " + driver);
-                return MS::kFailure;
-            }
+            MObject rootObject;
+            createRootJoint(rootObject);
+        }
+        if (!FuncUtils::objectExists(ROOT_BIND_CONTROLLER))
+        {
+            createRootController();
         }
     }
-
-    MObject rootObject;
-    createRootJoint(rootObject);
-    createRootController();
-
+    
     for (const BindBone& bone : bones)
     {
+        if (FuncUtils::objectExists(bone.bindJoint)) continue;
+
         createBindJoint(bone);
     }
 
     for (const BindBone& bone : bones)
     {
+        if (FuncUtils::objectExists(constraintName(bone.bindJoint))) continue;
+
         createParentConstraint(bone);
     }
 

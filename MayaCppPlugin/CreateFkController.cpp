@@ -74,7 +74,6 @@ namespace
         }
 
         const MString palmJoint = tree.rootJointName("fk");
-
         if (!FuncUtils::objectExists(palmJoint))
         {
             MGlobal::displayError("Missing parent joint: " + palmJoint);
@@ -84,8 +83,8 @@ namespace
         const MString parentController = parentFkControllerName(tree);
         if (!FuncUtils::objectExists(parentController))
         {
-            MGlobal::displayError("Parent controller does not exist: " + parentController);
-            return MS::kFailure;
+            MStatus status = validateJointController(tree, tree.root);
+            RETURN_IF_MAYA_FAILED(status, "Cannot validate palm FK controller");
         }
 
         for (const SingleChainDefinition& child : tree.children)
@@ -190,7 +189,15 @@ namespace
 
     MStatus createTreeChainControllers(const TreeBoneDefinition& tree)
     {
-        const MString wristController = parentFkControllerName(tree);
+        MStatus status;
+        MString handController = parentFkControllerName(tree);
+
+        if (!FuncUtils::objectExists(handController))
+        {
+            createFkControllers(tree, tree.root, ControllerShapeUtils::ShapeType::Circle);
+            handController = fkControllerName(tree, tree.root);
+            constrainJoint(handController, tree.rootJointName("fk"));
+        }
 
         for (const SingleChainDefinition& child : tree.children)
         {
@@ -198,7 +205,7 @@ namespace
             RETURN_IF_MAYA_FAILED(status, "Cannot create finger fk controllers");
 
             const MString rootController = fkControllerName(child, child.bones.front());
-            parentControllerGroup(rootController, wristController);
+            parentControllerGroup(rootController, handController);
         }
 
         MGlobal::displayInfo(tree.prefix() + " Fk controllers created successfully");

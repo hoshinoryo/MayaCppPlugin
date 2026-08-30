@@ -150,8 +150,32 @@ namespace
         }
     }
 
+    MStatus currentParentName(const MString& child, MString& result)
+    {
+        result = "";
+
+        MDagPath childPath;
+        FuncUtils::getDagPath(child, childPath);
+
+        if (childPath.length() <= 1)
+        {
+            return MS::kSuccess;
+        }
+
+        childPath.pop();
+        result = childPath.partialPathName();
+        return MS::kSuccess;
+    }
+
     MStatus parentToWorld(const MString& joint)
     {
+        MString currentParent;
+        currentParentName(joint, currentParent);
+        if (currentParent.length() == 0)
+        {
+            return MS::kSuccess;
+        }
+
         MString command;
         command.format("parent -absolute -world \"^1s\"", joint);
 
@@ -197,7 +221,9 @@ namespace
         return FuncUtils::executeMayaCommand(command, "Failed to create mirror joint");
     }
 
-    // Find fk parent of ik bones
+    /// <summary>
+    /// Find fk parent of ik bones.
+    /// </summary>
     MStatus collectFkAttachedIkRoots(const SingleChainDefinition& chain, std::vector<DetachedJoint>& result)
     {
         result.clear();
@@ -218,7 +244,10 @@ namespace
             if (!FuncUtils::objectExists(ikRootJoint)) continue;
 
             MString parentJointName;
-            resolveParentJointName(chain, bone, "ik", parentJointName);
+            currentParentName(ikRootJoint, parentJointName);
+            if (parentJointName.length() == 0) continue;
+
+            //resolveParentJointName(chain, bone, "ik", parentJointName);
 
             result.push_back({ ikRootJoint, parentJointName });
         }
@@ -231,7 +260,7 @@ namespace
 /// </summary>
     MStatus detachJoints(const std::vector<DetachedJoint>& joints)
     {
-        for (const DetachedJoint item : joints)
+        for (const DetachedJoint& item : joints)
         {
             MStatus status = parentToWorld(item.joint);
             RETURN_IF_MAYA_FAILED(status, "Cannot detach driver branch");
@@ -245,7 +274,7 @@ namespace
     /// </summary>
     MStatus reattachJoints(const std::vector<DetachedJoint>& joints)
     {
-        for (const DetachedJoint item : joints)
+        for (const DetachedJoint& item : joints)
         {
             MStatus status = parentJoint(item.joint, item.parent);
             RETURN_IF_MAYA_FAILED(status, "Cannot restore driver branch");
@@ -279,9 +308,17 @@ namespace
         const MString sourceRootJoint = sourceChain.jointName(sourceRootBone, chainType);
         const MString targetRootJoint = targetChain.jointName(targetRootBone, chainType);
 
+        
         MString sourceParentJoint, targetParentJoint;
+        /*
         resolveParentJointName(sourceChain, sourceRootBone, chainType, sourceParentJoint);
         resolveParentJointName(targetChain, targetRootBone, chainType, targetParentJoint);
+        */
+        currentParentName(sourceRootJoint, sourceParentJoint);
+        if (sourceParentJoint.length() > 0)
+        {
+            resolveParentJointName(targetChain, targetRootBone, chainType, targetParentJoint);
+        }
 
         std::vector<DetachedJoint> detachedIkRoots;
         if (chainType == "fk")
@@ -311,9 +348,10 @@ namespace
             restoreSourceStatus = parentJoint(sourceRootJoint, sourceParentJoint);
         }
 
-        reattachJoints(detachedIkRoots);
+        MStatus reattachBranchesStatus = reattachJoints(detachedIkRoots);
 
         RETURN_IF_MAYA_FAILED(restoreSourceStatus, "Cannot restore source root");
+        RETURN_IF_MAYA_FAILED(reattachBranchesStatus, "Cannot restore source IK branches");
         RETURN_IF_MAYA_FAILED(mirrorStatus, "Unable to mirror driver chain");
 
         if (targetParentJoint.length() > 0)
@@ -337,8 +375,12 @@ namespace
         const MString targetRootJoint = targetTree.rootJointName(chainType);
 
         MString sourceParentJoint, targetParentJoint;
-        resolveParentJointName(sourceTree, sourceTree.root, chainType, sourceParentJoint);
-        resolveParentJointName(targetTree, targetTree.root, chainType, targetParentJoint);
+        //resolveParentJointName(sourceTree, sourceTree.root, chainType, sourceParentJoint);
+        currentParentName(sourceRootJoint, sourceParentJoint);
+        if (sourceParentJoint.length() > 0)
+        {
+            resolveParentJointName(targetTree, targetTree.root, chainType, targetParentJoint);
+        }
 
         status = parentToWorld(sourceRootJoint); // detach fk root
 
@@ -350,17 +392,20 @@ namespace
             modulePrefix(module, targetSide)
         );
 
-        MStatus restoreSourceStatus = MS::kSuccess;
+        MStatus resttachSourceStatus = MS::kSuccess;
         if (sourceParentJoint.length() > 0)
         {
-            restoreSourceStatus = parentJoint(sourceRootJoint, sourceParentJoint);
+            resttachSourceStatus = parentJoint(sourceRootJoint, sourceParentJoint);
         }
 
-        RETURN_IF_MAYA_FAILED(restoreSourceStatus, "Cannot restore source root");
+        RETURN_IF_MAYA_FAILED(resttachSourceStatus, "Cannot restore source root");
         RETURN_IF_MAYA_FAILED(mirrorStatus, "Unable to mirror driver chain");
 
-        parentJoint(targetRootJoint, targetParentJoint);
-
+        if (targetParentJoint.length() > 0)
+        {
+            parentJoint(targetRootJoint, targetParentJoint);
+        }
+        
         return MS::kSuccess;
     }
 }

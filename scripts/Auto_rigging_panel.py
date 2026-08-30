@@ -164,7 +164,7 @@ class RigBuildController(QtCore.QObject):
         side_combo_box.blockSignals(False)
 
         mirror_available = (
-            module_name in ("arm", "leg")
+            module_name in ("arm", "hand", "leg")
             and "L" in allowed_sides
             and "R" in allowed_sides
         )
@@ -314,6 +314,8 @@ class RigBuildController(QtCore.QObject):
             build_fk=self.fk_enabled(),
             build_ik=self.ik_enabled()
         )
+
+        self.execute_plugin_command(CREATE_BIND_COMMAND_NAME, createRoot=False)
 
     # ------------------------------------------------------------------
     # Shared build operations

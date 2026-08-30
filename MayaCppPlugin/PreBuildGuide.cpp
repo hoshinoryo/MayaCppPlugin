@@ -212,11 +212,16 @@ namespace
             : tree.side + "_" + tree.parentModule;
         const MString parentGuideName = parentPrefix + "_" + tree.parentLabel + "_guide";
 
-        MDagPath parentGuidePath;
-        FuncUtils::getDagPath(parentGuideName, parentGuidePath);
+        MObject parentGuideTransform = MObject::kNullObj;
+        MVector parentWorldPosition = MVector::zero;
 
-        MVector parentWorldPosition;
-        FuncUtils::getWorldPosition(parentGuideName, parentWorldPosition);
+        if (FuncUtils::objectExists(parentGuideName))
+        {
+            MDagPath parentGuidePath;
+            FuncUtils::getDagPath(parentGuideName, parentGuidePath);
+            FuncUtils::getWorldPosition(parentGuideName, parentWorldPosition);
+            parentGuideTransform = parentGuidePath.node();
+        }
 
         MObject rootGuideTransform, rootGuideShape;
         const MVector rootLocalPosition = tree.root.position - parentWorldPosition;
@@ -225,7 +230,7 @@ namespace
             tree.root.label,
             rootLocalPosition,
             tree.guideColor,
-            parentGuidePath.node(),
+            parentGuideTransform,
             rootGuideTransform,
             rootGuideShape
         );
