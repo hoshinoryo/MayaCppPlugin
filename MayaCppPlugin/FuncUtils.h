@@ -12,8 +12,8 @@ namespace FuncUtils
     /// Get DAG path from node name.
     /// </summary>
     MStatus getDagPath(const MString& nodeName, MDagPath& dagPath);
-
     MStatus getShapeFromTransform(const MString& transformName, MDagPath& shapePath);
+    MStatus getDependencyNode(const MString& nodeName, MObject& result);
 
     MStatus setDisplayColor(const MObject& shapeObject, short colorIndex);
     MStatus setLocatorSize(const MObject& locatorShape, double size);

@@ -9,6 +9,7 @@
 #include "MirrorJointChain.h"
 #include "CreateBindSkeleton.h"
 #include "OrganizeControllerHierarchy.h"
+#include "CreateIkFkSwitch.h"
 
 
 MStatus initializePlugin(MObject obj)
@@ -27,6 +28,7 @@ MStatus initializePlugin(MObject obj)
 	status = fnPlugin.registerCommand("MirrorJointChain", MirrorJointChain::creator, MirrorJointChain::newSyntax);
 	status = fnPlugin.registerCommand("CreateBindSkeleton", CreateBindSkeleton::creator, CreateBindSkeleton::newSyntax);
 	status = fnPlugin.registerCommand("OrganizeControllerHierarchy", OrganizeControllerHierarchy::creator);
+	status = fnPlugin.registerCommand("CreateIkFkSwitch", CreateIkFkSwitch::creator, CreateIkFkSwitch::newSyntax);
 
 	if (!status)
 	{
@@ -53,6 +55,7 @@ MStatus uninitializePlugin(MObject obj)
 	status = fnPlugin.deregisterCommand("MirrorJointChain");
 	status = fnPlugin.deregisterCommand("CreateBindSkeleton");
 	status = fnPlugin.deregisterCommand("OrganizeControllerHierarchy");
+	status = fnPlugin.deregisterCommand("CreateIkFkSwitch");
 
 	if (!status)
 	{

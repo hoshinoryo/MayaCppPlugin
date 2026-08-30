@@ -136,7 +136,7 @@ namespace
         }
     }
 
-    MStatus createCVCircle(const MString& controllerName, double radius, MObject& controllerTransform)
+    MStatus createCVCircle(const MString& controllerName, double radius, const MString& normal, MObject& controllerTransform)
     {
         MStatus status;
 
@@ -147,8 +147,9 @@ namespace
 
         // Create circle controller
         command.format(
-            "circle -name \"^1s\" -normal 1 0 0 -radius ^2s -constructionHistory false",
+            "circle -name \"^1s\" -normal ^2s -radius ^3s -constructionHistory false",
             controllerName,
+            normal,
             radiusString);
         FuncUtils::executeMayaCommand(command, "Cannot create FK controller circle");
 
@@ -157,6 +158,46 @@ namespace
         RETURN_IF_MAYA_FAILED(status, "Cannot find controller transform");
 
         controllerTransform = controllerPath.node();
+
+        return MS::kSuccess;
+    }
+
+    MStatus createCVSphere(const MString& controllerName, double radius, MObject& controllerTransform)
+    {
+        MStatus status;
+
+        // Create CV circle shape
+        status = createCVCircle(controllerName, radius, "1 0 0", controllerTransform);
+        RETURN_IF_MAYA_FAILED(status, "Cannot create X circle");
+
+        const MString normals[] = {
+            "0 1 0",
+            "0 0 1"
+        };
+        for (unsigned int i = 0; i < 2; i++)
+        {
+            const MString tempName = controllerName + (i == 0 ? "_tmpY" : "_tmpZ");
+            MObject tempTransform;
+
+            status = createCVCircle(tempName, radius, normals[i], tempTransform);
+            RETURN_IF_MAYA_FAILED(status, "Cannot create circle");
+
+            MFnDagNode tempDagNode(tempTransform);
+            MObject shapeObject = tempDagNode.child(0);
+            MFnDependencyNode shapeFn(shapeObject);
+            const MString shapeName = shapeFn.name();
+            MFnDependencyNode tempTransformFn(tempTransform);
+            const MString tempTransformName = tempTransformFn.name();
+
+            MString command;
+            command.format("parent -shape -relative \"^1s\" \"^2s\"",
+                shapeName,
+                controllerName);
+            FuncUtils::executeMayaCommand(command, "Cannot parent circle shape");
+
+            command.format("delete \"^1s\"", tempTransformName);
+            FuncUtils::executeMayaCommand(command, "Cannot delete temporary circle");
+        }
 
         return MS::kSuccess;
     }
@@ -196,7 +237,12 @@ MStatus ControllerShapeUtils::createController(
 
     if (shapeType == ShapeType::Circle)
     {
-        status = createCVCircle(controllerName, size, controllerTransform);
+        status = createCVCircle(controllerName, size, "1 0 0", controllerTransform);
+        RETURN_IF_MAYA_FAILED(status, "Unable to create controller");
+    }
+    else if (shapeType == ShapeType::Sphere)
+    {
+        status = createCVSphere(controllerName, size, controllerTransform);
         RETURN_IF_MAYA_FAILED(status, "Unable to create controller");
     }
     else

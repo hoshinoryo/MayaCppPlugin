@@ -16,7 +16,8 @@ namespace ControllerShapeUtils
 		Box,
 		Pyramid,
 		Arrow,
-		Lollipop
+		Lollipop,
+		Sphere
 	};
 
 	MString controllerGroupName(const MString& controllerName);

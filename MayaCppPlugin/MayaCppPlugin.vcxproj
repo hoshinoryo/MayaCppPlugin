@@ -154,6 +154,7 @@
     <ClCompile Include="ControllerShapeUtils.cpp" />
     <ClCompile Include="CreateBindSkeleton.cpp" />
     <ClCompile Include="CreateIkController.cpp" />
+    <ClCompile Include="CreateIkFkSwitch.cpp" />
     <ClCompile Include="CreateJointChain.cpp" />
     <ClCompile Include="CreateFkController.cpp" />
     <ClCompile Include="CustomCreateSphere.cpp" />
@@ -171,6 +172,7 @@
     <ClInclude Include="ControllerShapeUtils.h" />
     <ClInclude Include="CreateBindSkeleton.h" />
     <ClInclude Include="CreateIkController.h" />
+    <ClInclude Include="CreateIkFkSwitch.h" />
     <ClInclude Include="CreateJointChain.h" />
     <ClInclude Include="CreateFkController.h" />
     <ClInclude Include="CustomCreateSphere.h" />

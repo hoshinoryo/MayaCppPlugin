@@ -12,6 +12,8 @@
 #include <maya/MDagPath.h>
 #include <maya/MMatrix.h>
 #include <maya/MArgDatabase.h>
+#include <maya/MSelectionList.h>
+#include <maya/MPlug.h>
 
 
 namespace
@@ -270,6 +272,47 @@ namespace
 
         return FuncUtils::executeMayaCommand(command, "Cannot constrain bind joint: " + bone.bindJoint);
     }
+
+    MStatus hideAndLockJoint(const MString& jointName)
+    {
+        MStatus status;
+        MSelectionList selection;
+
+        selection.add(jointName);
+
+        MObject jointObject;
+        status = selection.getDependNode(0, jointObject);
+        RETURN_IF_MAYA_FAILED(status, "Cannot read driver joint: " + jointName);
+
+        MFnDependencyNode jointFn(jointObject);
+
+        MPlug visibilityPlug = jointFn.findPlug("visibility", true,&status);
+        RETURN_IF_MAYA_FAILED(status, "Cannot find joint visibility : " + jointName);
+
+        if (visibilityPlug.isLocked())
+        {
+            visibilityPlug.setLocked(false);
+        }
+
+        visibilityPlug.setBool(false);
+        visibilityPlug.setLocked(true);
+
+        return MS::kSuccess;
+    }
+
+    MStatus hideAndLockJoints(const std::vector<BindBone>& bones)
+    {
+        for (const BindBone& bone : bones)
+        {
+            for (const MString& driver : bone.drivers)
+            {
+                MStatus status = hideAndLockJoint(driver);
+                RETURN_IF_MAYA_FAILED(status, "Cannot hide FK/IK driver joint");
+            }
+        }
+
+        return MS::kSuccess;
+    }
 }
 
 
@@ -331,6 +374,9 @@ MStatus CreateBindSkeleton::doIt(const MArgList& args)
 
         createParentConstraint(bone);
     }
+
+    status = hideAndLockJoints(bones);
+    RETURN_IF_MAYA_FAILED(status, "Cannot hide FK/IK driver joints");
 
     MGlobal::displayInfo("Complete bind skeleton created successfully");
 

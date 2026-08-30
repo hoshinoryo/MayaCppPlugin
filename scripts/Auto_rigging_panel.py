@@ -15,6 +15,7 @@ CREATE_FK_COMMAND_NAME = "CreateFkController"
 CREATE_IK_COMMAND_NAME = "CreateIkController"
 CREATE_BIND_COMMAND_NAME = "CreateBindSkeleton"
 ORGANIZE_CONTROLLERS_COMMAND_NAME = "OrganizeControllerHierarchy"
+CREATE_IFK_SWITCH_COMMAND_NAME = "CreateIkFkSwitch"
 
 
 
@@ -248,8 +249,26 @@ class RigBuildController(QtCore.QObject):
                 build_ik=definition["ik"]
             )
 
-        # bind bone
+        # Create bind bone
         self.execute_plugin_command(CREATE_BIND_COMMAND_NAME)
+
+        # Create IK/FK switch
+        for definition in FULL_BODY_MODULES:
+            if not definition["fk"] or not definition["ik"]:
+                continue
+
+            switch_sides = (definition["side"],)
+
+            if definition["mirror"]:
+                switch_sides = (
+                    definition["side"],
+                    self.opposite_side(definition["side"])
+                )
+
+            self.create_ik_fk_switches(
+                module=definition["module"],
+                sides=switch_sides
+            )
 
         self.execute_plugin_command(ORGANIZE_CONTROLLERS_COMMAND_NAME)
 
@@ -317,6 +336,12 @@ class RigBuildController(QtCore.QObject):
 
         self.execute_plugin_command(CREATE_BIND_COMMAND_NAME, createRoot=False)
 
+        if self.fk_enabled() and self.ik_enabled():
+            self.create_ik_fk_switches(
+                module=module,
+                sides=controller_sides
+            )
+
     # ------------------------------------------------------------------
     # Shared build operations
     # ------------------------------------------------------------------
@@ -376,6 +401,14 @@ class RigBuildController(QtCore.QObject):
                     module=module,
                     side=side
                 )
+
+    def create_ik_fk_switches(self, module, sides):
+        for side in sides:
+            self.execute_plugin_command(
+                CREATE_IFK_SWITCH_COMMAND_NAME,
+                module=module,
+                side=side
+            )
 
     # ------------------------------------------------------------------
     # Maya command execution

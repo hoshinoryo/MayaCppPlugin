@@ -64,6 +64,20 @@ MStatus FuncUtils::getShapeFromTransform(const MString& transformName, MDagPath&
     return MS::kSuccess;
 }
 
+MStatus FuncUtils::getDependencyNode(const MString& nodeName, MObject& result)
+{
+    MStatus status;
+    MSelectionList selection;
+
+    status = selection.add(nodeName);
+    RETURN_IF_MAYA_FAILED(status, "Cannot find node: " + nodeName);
+
+    status = selection.getDependNode(0, result);
+    RETURN_IF_MAYA_FAILED(status, "Cannot read node: " + nodeName);
+
+    return MS::kSuccess;
+}
+
 MStatus FuncUtils::setDisplayColor(const MObject& shapeObject, short colorIndex)
 {
     MStatus status;

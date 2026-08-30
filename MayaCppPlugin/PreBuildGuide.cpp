@@ -268,53 +268,119 @@ MStatus PreBuildGuide::doIt(const MArgList& args)
     status = ChainCommandUtils::parseModuleAndSide(syntax(), args, module, side);
     RETURN_IF_MAYA_FAILED(status, "Unable to read module and side");
 
-    if (module == "hand")
-    {
-        TreeBoneDefinition tree;
-
-        status = ChainCommandUtils::parseDefinition(syntax(), args, tree);
-
-        return createTreeGuides(tree);
-    }
-
-    SingleChainDefinition chain;
-
-    status = ChainCommandUtils::parseDefinition(syntax(), args, chain);
-    RETURN_IF_MAYA_FAILED(status, "Unable to read chain definition");
+    m_isTreeGuide = module == "hand";
 
     // Check before creation
-    if (chain.bones.size() < 2)
+    if (m_isTreeGuide)
     {
-        MGlobal::displayError("A bone chain requires at least two guides");
-        return MS::kFailure;
-    }
+        status = ChainCommandUtils::parseDefinition(syntax(), args, m_Tree);
+        RETURN_IF_MAYA_FAILED(status, "Unable to read tree definition");
 
-    for (const BoneBase& bone : chain.bones)
-    {
-        const MString guideName = chain.guideName(bone);
-
-        if (FuncUtils::objectExists(guideName))
+        if (FuncUtils::objectExists(m_Tree.rootGuideName()) 
+            || FuncUtils::objectExists(m_Tree.rootGuideName() + "_label"))
         {
-            MGlobal::displayError("Guide already exists: " + guideName);
+            MGlobal::displayError("Guide already exists: " + m_Tree.rootGuideName());
             return MS::kFailure;
         }
 
-        if (FuncUtils::objectExists(guideName + "_label"))
+        for (const SingleChainDefinition& child : m_Tree.children)
         {
-            MGlobal::displayError("Guide label already exists: " + guideName + "_label");
+            if (child.bones.size() < 2)
+            {
+                MGlobal::displayError("A bone chain requires at least two guides: " + child.prefix());
+                return MS::kFailure;
+            }
+
+            for (const BoneBase& bone : child.bones)
+            {
+                const MString guideName = child.guideName(bone);
+
+                if (FuncUtils::objectExists(guideName))
+                {
+                    MGlobal::displayError("Guide already exists: " + guideName);
+                    return MS::kFailure;
+                }
+
+                if (FuncUtils::objectExists(guideName + "_label"))
+                {
+                    MGlobal::displayError("Guide label already exists: " + guideName + "_label");
+                    return MS::kFailure;
+                }
+            }
+
+            if (FuncUtils::objectExists(child.guideCurveName()))
+            {
+                MGlobal::displayError("Guide curve already exists: " + m_Chain.guideCurveName());
+                return MS::kFailure;
+            }
+        }
+    }
+    else
+    {
+        status = ChainCommandUtils::parseDefinition(syntax(), args, m_Chain);
+        RETURN_IF_MAYA_FAILED(status, "Unable to read chain definition");
+
+        if (m_Chain.bones.size() < 2)
+        {
+            MGlobal::displayError("A bone chain requires at least two guides: " + m_Chain.prefix());
+            return MS::kFailure;
+        }
+
+        for (const BoneBase& bone : m_Chain.bones)
+        {
+            const MString guideName = m_Chain.guideName(bone);
+
+            if (FuncUtils::objectExists(guideName))
+            {
+                MGlobal::displayError("Guide already exists: " + guideName);
+                return MS::kFailure;
+            }
+
+            if (FuncUtils::objectExists(guideName + "_label"))
+            {
+                MGlobal::displayError("Guide label already exists: " + guideName + "_label");
+                return MS::kFailure;
+            }
+        }
+
+        if (FuncUtils::objectExists(m_Chain.guideCurveName()))
+        {
+            MGlobal::displayError("Guide curve already exists: " + m_Chain.guideCurveName());
             return MS::kFailure;
         }
     }
 
-    if (FuncUtils::objectExists(chain.guideCurveName()))
+    return redoIt();
+}
+
+MStatus PreBuildGuide::redoIt()
+{
+    MStatus status;
+
+    if (m_isTreeGuide)
     {
-        MGlobal::displayError("Guide curve already exists: " + chain.guideCurveName());
-        return MS::kFailure;
+        status = createTreeGuides(m_Tree);
+        RETURN_IF_MAYA_FAILED(status, "Unable to create tree guides");
+
+        MGlobal::displayInfo(m_Tree.prefix() + " guides created successful.");
     }
+    else
+    {
+        status = createSingleChainGuides(m_Chain);
+        RETURN_IF_MAYA_FAILED(status, "Unable to create chain guides");
 
-    status = createSingleChainGuides(chain);
-
-    MGlobal::displayInfo(chain.prefix() + " guides created successful.");
+        MGlobal::displayInfo(m_Chain.prefix() + " guides created successful.");
+    }
 
     return MS::kSuccess;
+}
+
+MStatus PreBuildGuide::undoIt()
+{
+    return MStatus();
+}
+
+bool PreBuildGuide::isUndoable() const
+{
+    return true;
 }

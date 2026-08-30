@@ -1,12 +1,11 @@
 #pragma once
 
 #include <maya/MStatus.h>
-#include <maya/MArgList.h>
 #include <maya/MPxCommand.h>
 
 #include "BoneChainDefinition.h"
 
-class PreBuildGuide : public MPxCommand
+class CreateIkFkSwitch : public MPxCommand
 {
 public:
 
@@ -21,8 +20,5 @@ public:
 
 private:
 
-	bool m_isTreeGuide = false;
-
 	SingleChainDefinition m_Chain;
-	TreeBoneDefinition m_Tree;
 };
